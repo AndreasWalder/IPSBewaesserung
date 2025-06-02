@@ -2,7 +2,7 @@
 "id": "{DEADBEAF-0000-0000-0000-000000000001}",
 	"name": "IPSBewaesserung",
 	"type": 3,
-	"vendor": "",
+	"vendor": "Andreas Walder",
 	"aliases": [
 		"IPSBewaesserung"
 	],
