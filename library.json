@@ -1,19 +1,9 @@
 {
-  "id": "{7A5B4102-5272-4F7E-AD3A-000000000001}",
-  "author": "Andreas Walder",
-  "name": "Bewässerung Multi-Zone",
-  "url": "https://github.com/AndreasWalder/IPSBewaesserung",
-  "version": "1.0",
-  "build": 1,
-  "date": "2025-06-02",
-  "modules": [
-    {
-      "id": "{7A5B4102-5272-4F7E-AD3A-000000000002}",
-      "name": "Bewässerung Multi-Zone",
-      "type": 3,
-      "prefix": "BEWA",
-      "url": "IPSBewaesserung/",
-      "version": "1.0"
-    }
-  ]
+ "id": "{7A5B4102-5272-4F7E-AD3A-000000000001}",
+ "author": "Andreas Walder",
+ "name": "Bewässerung Multi-Zone",
+ "url": "https://github.com/AndreasWalder/IPSBewaesserung",
+ "version": "1.0",
+ "build": 20250602,
+ "date": 0
 }
