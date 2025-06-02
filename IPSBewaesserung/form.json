@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "type": "NumberSpinner",
+      "name": "ZoneCount",
+      "caption": "Anzahl der Zonen",
+      "minimum": 1,
+      "maximum": 10
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Zonen-Konfiguration",
+      "items": [
+        {
+          "type": "DynamicElement",
+          "name": "ZonenDynamisch",
+          "source": "ZoneCount",
+          "minimum": 1,
+          "maximum": 10,
+          "elements": [
+            {
+              "type": "SelectObject",
+              "name": "AktorID{index}",
+              "caption": "KNX Aktor-Variable für Zone {index}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": []
+}
