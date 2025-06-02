@@ -112,11 +112,11 @@ class IPSBewaesserung extends IPSModule
             $prioDauer = $this->getPrioDauer($zoneArray);
 
             // Startzeit prüfen/setzen
-            $startPrio = $this->GetAttributeInteger($startAttr);
+            $startPrio = $this->ReadAttributeInteger($startAttr);
             if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
                 // Startzeit NICHT gesetzt oder abgelaufen -> NEU setzen
                 $startPrio = $now + $globalOffset;
-                $this->SetAttributeInteger($startAttr, $startPrio);
+                $this->WriteAttributeInteger($startAttr, $startPrio);
             }
 
             $maxDauer = 0;
@@ -157,7 +157,7 @@ class IPSBewaesserung extends IPSModule
     private function ResetAllPrioStarts()
     {
         for ($prio = 0; $prio <= 99; $prio++) {
-            $this->SetAttributeInteger("StartPrio" . $prio, 0);
+            $this->WriteAttributeInteger("StartPrio" . $prio, 0);
         }
     }
 
