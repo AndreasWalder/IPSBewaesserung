@@ -1,5 +1,5 @@
 <?php
-class BEWA_Bewaesserung extends IPSModule {
+class IPSBewaesserung extends IPSModule {
 
     public function Create() {
         parent::Create();
