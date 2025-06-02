@@ -1,6 +1,6 @@
 {
   "id": "{DEADBEAF-0000-0000-0000-000000000001}",
-  "name": "Bew\u00e4sserung Multi-Zone",
+  "name": "IPSBewaesserung",
   "type": 3,
   "vendor": "OpenAI",
   "version": "1.0",
@@ -12,7 +12,7 @@
   "modules": [
     {
       "id": "{DEADBEAF-0000-0000-0000-000000000002}",
-      "name": "Bew\u00e4sserung Multi-Zone",
+      "name": "IPSBewaesserung",
       "prefix": "BEWA",
       "url": "Bewaesserung/",
       "author": "ChatGPT",
