@@ -2,7 +2,7 @@
   "id": "{DEADBEAF-0000-0000-0000-000000000001}",
   "name": "IPSBewaesserung",
   "type": 3,
-  "vendor": "OpenAI",
+  "vendor": "Walder Andreas",
   "version": "1.0",
   "author": "ChatGPT",
   "url": "https://github.com/AndreasWalder/IPSBewaesserung",
@@ -15,7 +15,7 @@
       "name": "IPSBewaesserung",
       "prefix": "BEWA",
       "url": "Bewaesserung/",
-      "author": "ChatGPT",
+      "author": "Walder Andreas",
       "version": "1.0"
     }
   ]
