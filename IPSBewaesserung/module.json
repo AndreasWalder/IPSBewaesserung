@@ -1,22 +1,13 @@
 {
-  "id": "{DEADBEAF-0000-0000-0000-000000000001}",
-  "name": "IPSBewaesserung",
-  "type": 3,
-  "vendor": "Walder Andreas",
-  "version": "1.0",
-  "author": "ChatGPT",
-  "url": "https://github.com/AndreasWalder/IPSBewaesserung",
-  "compatibility": {
-    "version": "6.3"
-  },
-  "modules": [
-    {
-      "id": "{DEADBEAF-0000-0000-0000-000000000002}",
-      "name": "IPSBewaesserung",
-      "prefix": "BEWA",
-      "url": "Bewaesserung/",
-      "author": "Walder Andreas",
-      "version": "1.0"
-    }
-  ]
+"id": "{DEADBEAF-0000-0000-0000-000000000001}",
+	"name": "IPSBewaesserung",
+	"type": 3,
+	"vendor": "",
+	"aliases": [
+		"IPSBewaesserung"
+	],
+	"parentRequirements": [],
+	"childRequirements": [],
+	"implemented": [],
+	"prefix": "Bewaesserung"
 }
