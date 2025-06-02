@@ -4,12 +4,24 @@ class IPSBewaesserung extends IPSModule
     public function Create()
     {
         parent::Create();
-        // Prio-Startzeiten registrieren
+        // Eigene Profile für Dauer und Priorität (werden nur 1x angelegt!)
+        if (!IPS_VariableProfileExists("IPSBW.Duration")) {
+            IPS_CreateVariableProfile("IPSBW.Duration", 1);
+            IPS_SetVariableProfileText("IPSBW.Duration", "", " s");
+            IPS_SetVariableProfileDigits("IPSBW.Duration", 0);
+            IPS_SetVariableProfileValues("IPSBW.Duration", 1, 3600, 1);
+        }
+        if (!IPS_VariableProfileExists("IPSBW.Prioritaet")) {
+            IPS_CreateVariableProfile("IPSBW.Prioritaet", 1);
+            IPS_SetVariableProfileText("IPSBW.Prioritaet", "", "");
+            IPS_SetVariableProfileValues("IPSBW.Prioritaet", 1, 20, 1);
+        }
+
         for ($p = 0; $p <= 99; $p++) {
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
 
-        $this->RegisterPropertyInteger("ZoneCount", 1); // Standard: 1 Zone!
+        $this->RegisterPropertyInteger("ZoneCount", 1);
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
         $this->EnableAction("GesamtAutomatik");
     }
@@ -27,14 +39,21 @@ class IPSBewaesserung extends IPSModule
             $this->RegisterVariableBoolean("Automatik$i", "Automatik Zone $i", "~Switch", 1001 + $i * 10);
             $this->EnableAction("Automatik$i");
 
-            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (Sekunden)", "~Intensity.100", 1002 + $i * 10);
+            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i", "IPSBW.Duration", 1002 + $i * 10);
             $this->EnableAction("Dauer$i");
 
-            $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "~Intensity.100", 1003 + $i * 10);
+            $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "IPSBW.Prioritaet", 1003 + $i * 10);
             $this->EnableAction("Prio$i");
 
             $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
             $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
+
+            // Hinweis, falls keine AktorID gewählt!
+            $aktorID = $this->ReadPropertyInteger("AktorID$i");
+            $infoID = $this->GetIDForIdent("Info$i");
+            if ($aktorID == 0) {
+                SetValueString($infoID, "Bitte KNX-Aktor für Zone $i auswählen!");
+            }
         }
         // Timer starten
         $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
@@ -46,7 +65,6 @@ class IPSBewaesserung extends IPSModule
             $this->Evaluate();
             return;
         }
-        // Dauer und Prio sind jetzt auch "enableAction" und damit schaltbar
         SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
