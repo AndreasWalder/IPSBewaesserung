@@ -82,9 +82,111 @@ class IPSBewaesserung extends IPSModule
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         if ($zoneCount < 1) $zoneCount = 1;
         if ($zoneCount > 10) $zoneCount = 10;
-        $manualBlocked = [];
 
-        // 1. Manuell immer Vorrang – auch bei AUS jetzt wirklich ausschalten!
+        $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
+
+        if ($gesamtAuto) {
+            // AUTOMATIK HAT VORRANG, MANUELL WIRD IGNORIERT!
+            for ($i = 1; $i <= $zoneCount; $i++) {
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                $statusID = $this->GetIDForIdent("Status$i");
+                $infoID = $this->GetIDForIdent("Info$i");
+
+                if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
+                    SetValueString($infoID, "Automatik aktiv, Manuell gesperrt");
+                    // Status wird durch Automatiklogik gesetzt
+                } else {
+                    SetValueBoolean($statusID, false);
+                    SetValueString($infoID, "Keine AktorID");
+                }
+            }
+
+            // ----- Automatik-Logik (wie gehabt) -----
+            $prioMap = [];
+            for ($i = 1; $i <= $zoneCount; $i++) {
+                $auto = GetValue($this->GetIDForIdent("Automatik$i"));
+                $prio = GetValue($this->GetIDForIdent("Prio$i"));
+                $dauer = GetValue($this->GetIDForIdent("Dauer$i"));
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                $statusID = $this->GetIDForIdent("Status$i");
+                $infoID = $this->GetIDForIdent("Info$i");
+
+                if ($auto && $aktorID > 0 && @IPS_ObjectExists($aktorID)) {
+                    if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
+                    $prioMap[$prio][] = [
+                        'index' => $i,
+                        'dauer' => $dauer,
+                        'aktorID' => $aktorID,
+                        'statusID' => $statusID,
+                        'infoID' => $infoID
+                    ];
+                }
+            }
+
+            if (empty($prioMap)) {
+                $this->ResetAllPrioStarts();
+                return;
+            }
+
+            ksort($prioMap, SORT_NUMERIC);
+            $globalOffset = 0;
+            foreach ($prioMap as $prio => $zoneArray) {
+                $startAttr = "StartPrio" . $prio;
+                $prioDauer = $this->getPrioDauer($zoneArray);
+
+                $startPrio = $this->ReadAttributeInteger($startAttr);
+                if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
+                    $startPrio = $now + $globalOffset;
+                    $this->WriteAttributeInteger($startAttr, $startPrio);
+                }
+
+                $maxDauer = 0;
+                foreach ($zoneArray as $z) {
+                    $ende = $startPrio + $z['dauer'];
+                    if ($z['dauer'] > $maxDauer) $maxDauer = $z['dauer'];
+
+                    $nowActive = ($now >= $startPrio && $now < $ende);
+                    if ($nowActive) {
+                        if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
+                            RequestAction($z['aktorID'], true);
+                            SetValueBoolean($z['statusID'], true);
+                        }
+                        $rest = $ende - $now;
+                        SetValueString($z['infoID'], "Automatik läuft noch " . $rest . " Sek. (Prio $prio)");
+                    } else {
+                        if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
+                            RequestAction($z['aktorID'], false);
+                            SetValueBoolean($z['statusID'], false);
+                        }
+                        $wait = $startPrio - $now;
+                        SetValueString($z['infoID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
+                    }
+                }
+                $globalOffset += $maxDauer;
+            }
+
+            // Prüfen, ob noch irgendwo Automatik läuft – sonst Automatik abschalten!
+            $irgendetwasAktiv = false;
+            foreach ($prioMap as $prio => $zoneArray) {
+                $startAttr = "StartPrio" . $prio;
+                $startPrio = $this->ReadAttributeInteger($startAttr);
+                foreach ($zoneArray as $z) {
+                    $ende = $startPrio + $z['dauer'];
+                    if ($now >= $startPrio && $now < $ende) {
+                        $irgendetwasAktiv = true;
+                        break 2; // Sofort abbrechen
+                    }
+                }
+            }
+
+            if (!$irgendetwasAktiv) {
+                SetValue($this->GetIDForIdent("GesamtAutomatik"), false);
+            }
+
+            return;
+        }
+
+        // --------- Nur wenn Automatik AUS: Manuell möglich! ----------
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -96,111 +198,17 @@ class IPSBewaesserung extends IPSModule
                     RequestAction($aktorID, true);
                     SetValueBoolean($statusID, true);
                     SetValueString($infoID, "Manuell eingeschaltet");
-                    $manualBlocked[] = $i;
-                    continue;
                 } else {
-                    // Bei Manuell AUS explizit AUS schalten!
                     RequestAction($aktorID, false);
                     SetValueBoolean($statusID, false);
                     SetValueString($infoID, "Manuell ausgeschaltet");
-                    $manualBlocked[] = $i;
-                    continue;
                 }
             } else {
                 SetValueBoolean($statusID, false);
                 SetValueString($infoID, "Keine AktorID");
-                $manualBlocked[] = $i;
-                continue;
             }
         }
-
-        $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
-        if (!$gesamtAuto) {
-            $this->ResetAllPrioStarts();
-            return;
-        }
-
-        $prioMap = [];
-        for ($i = 1; $i <= $zoneCount; $i++) {
-            if (in_array($i, $manualBlocked)) continue;
-            $auto = GetValue($this->GetIDForIdent("Automatik$i"));
-            $prio = GetValue($this->GetIDForIdent("Prio$i"));
-            $dauer = GetValue($this->GetIDForIdent("Dauer$i"));
-            $aktorID = $this->ReadPropertyInteger("AktorID$i");
-            $statusID = $this->GetIDForIdent("Status$i");
-            $infoID = $this->GetIDForIdent("Info$i");
-
-            if ($auto) {
-                if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
-                $prioMap[$prio][] = [
-                    'index' => $i,
-                    'dauer' => $dauer,
-                    'aktorID' => $aktorID,
-                    'statusID' => $statusID,
-                    'infoID' => $infoID
-                ];
-            }
-        }
-
-        if (empty($prioMap)) {
-            $this->ResetAllPrioStarts();
-            return;
-        }
-
-        ksort($prioMap, SORT_NUMERIC);
-        $globalOffset = 0;
-        foreach ($prioMap as $prio => $zoneArray) {
-            $startAttr = "StartPrio" . $prio;
-            $prioDauer = $this->getPrioDauer($zoneArray);
-
-            $startPrio = $this->ReadAttributeInteger($startAttr);
-            if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
-                $startPrio = $now + $globalOffset;
-                $this->WriteAttributeInteger($startAttr, $startPrio);
-            }
-
-            $maxDauer = 0;
-            foreach ($zoneArray as $z) {
-                $ende = $startPrio + $z['dauer'];
-                if ($z['dauer'] > $maxDauer) $maxDauer = $z['dauer'];
-
-                $nowActive = ($now >= $startPrio && $now < $ende);
-                if ($nowActive) {
-                    if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
-                        RequestAction($z['aktorID'], true);
-                        SetValueBoolean($z['statusID'], true);
-                    }
-                    $rest = $ende - $now;
-                    SetValueString($z['infoID'], "Automatik läuft noch " . $rest . " Sek. (Prio $prio)");
-                } else {
-                    if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
-                        RequestAction($z['aktorID'], false);
-                        SetValueBoolean($z['statusID'], false);
-                    }
-                    $wait = $startPrio - $now;
-                    SetValueString($z['infoID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
-                }
-            }
-            $globalOffset += $maxDauer;
-        }
-
-        // Prüfen, ob noch irgendwo Automatik läuft – sonst Automatik abschalten!
-        $irgendetwasAktiv = false;
-        foreach ($prioMap as $prio => $zoneArray) {
-            $startAttr = "StartPrio" . $prio;
-            $startPrio = $this->ReadAttributeInteger($startAttr);
-            foreach ($zoneArray as $z) {
-                $ende = $startPrio + $z['dauer'];
-                if ($now >= $startPrio && $now < $ende) {
-                    $irgendetwasAktiv = true;
-                    break 2; // Sofort abbrechen
-                }
-            }
-        }
-
-        if (!$irgendetwasAktiv) {
-            SetValue($this->GetIDForIdent("GesamtAutomatik"), false);
-        }
+        // KEINE Automatik-Logik mehr, wenn Automatik aus ist!
     }
 
     private function getPrioDauer($zoneArray)
