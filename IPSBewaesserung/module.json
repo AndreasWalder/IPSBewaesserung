@@ -1,6 +1,6 @@
 {
   "id": "{DEADBEAF-0000-0000-0000-000000000001}",
-  "name": "Bew\u00e4sserung Multi-Zone",
+  "name": "Bewaesserung Multi-Zone",
   "type": 3,
   "vendor": "Andreas Walder",
   "version": "1.0",
@@ -12,7 +12,7 @@
   "modules": [
     {
       "id": "{DEADBEAF-0000-0000-0000-000000000002}",
-      "name": "Bew\u00e4sserung Multi-Zone",
+      "name": "Bewaesserung Multi-Zone",
       "prefix": "BEWA",
       "url": "IPSBewaesserung/",
       "author": "Andreas Walder",
