@@ -2,7 +2,7 @@
   "id": "{DEADBEAF-0000-0000-0000-000000000001}",
   "name": "Bew\u00e4sserung Multi-Zone",
   "type": 3,
-  "vendor": "OpenAI",
+  "vendor": "Andreas Walder",
   "version": "1.0",
   "author": "Andreas Walder",
   "url": "https://github.com/openai/IPSBewaesserung",
