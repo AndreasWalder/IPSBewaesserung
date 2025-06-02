@@ -14,7 +14,8 @@ class IPSBewaesserung extends IPSModule {
             $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "", 1003 + $i * 10);
             $this->RegisterVariableString("Status$i", "Status Zone $i", "", 1004 + $i * 10);
         }
-        $this->RegisterTimer("EvaluateTimer", 60000, 'IPSBewaesserung_Evaluate($_IPS["TARGET"]);');
+        // Korrigierter Timer-Aufruf:
+        $this->RegisterTimer("EvaluateTimer", 60000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
     public function ApplyChanges() {
@@ -22,6 +23,11 @@ class IPSBewaesserung extends IPSModule {
     }
 
     public function RequestAction($Ident, $Value) {
+        // Erweiterung: Timer kann "Evaluate" aufrufen!
+        if ($Ident == "Evaluate") {
+            $this->Evaluate();
+            return;
+        }
         SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
