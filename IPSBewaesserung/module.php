@@ -30,7 +30,7 @@ class IPSBewaesserung extends IPSModule
         for ($p = 0; $p <= 99; $p++) {
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
-        // Timer nur hier registrieren
+
         $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
@@ -42,7 +42,6 @@ class IPSBewaesserung extends IPSModule
         if ($zoneCount > 10) $zoneCount = 10;
 
         for ($i = 1; $i <= $zoneCount; $i++) {
-            // Keine Property mehr registrieren!
             $this->RegisterVariableBoolean("Manuell$i", "Manuell Zone $i", "~Switch", 1000 + $i * 10);
             $this->EnableAction("Manuell$i");
 
@@ -65,7 +64,6 @@ class IPSBewaesserung extends IPSModule
                 SetValueString($infoID, "Bitte KNX-Aktor für Zone $i auswählen!");
             }
         }
-        // Timer-Intervall nachziehen
         $this->SetTimerInterval("EvaluateTimer", 1000);
     }
 
@@ -86,6 +84,7 @@ class IPSBewaesserung extends IPSModule
         if ($zoneCount > 10) $zoneCount = 10;
         $manualBlocked = [];
 
+        // 1. Manuell immer Vorrang – auch bei AUS jetzt wirklich ausschalten!
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -97,6 +96,13 @@ class IPSBewaesserung extends IPSModule
                     RequestAction($aktorID, true);
                     SetValueBoolean($statusID, true);
                     SetValueString($infoID, "Manuell eingeschaltet");
+                    $manualBlocked[] = $i;
+                    continue;
+                } else {
+                    // Bei Manuell AUS explizit AUS schalten!
+                    RequestAction($aktorID, false);
+                    SetValueBoolean($statusID, false);
+                    SetValueString($infoID, "Manuell ausgeschaltet");
                     $manualBlocked[] = $i;
                     continue;
                 }
@@ -176,6 +182,24 @@ class IPSBewaesserung extends IPSModule
                 }
             }
             $globalOffset += $maxDauer;
+        }
+
+        // Prüfen, ob noch irgendwo Automatik läuft – sonst Automatik abschalten!
+        $irgendetwasAktiv = false;
+        foreach ($prioMap as $prio => $zoneArray) {
+            $startAttr = "StartPrio" . $prio;
+            $startPrio = $this->ReadAttributeInteger($startAttr);
+            foreach ($zoneArray as $z) {
+                $ende = $startPrio + $z['dauer'];
+                if ($now >= $startPrio && $now < $ende) {
+                    $irgendetwasAktiv = true;
+                    break 2; // Sofort abbrechen
+                }
+            }
+        }
+
+        if (!$irgendetwasAktiv) {
+            SetValue($this->GetIDForIdent("GesamtAutomatik"), false);
         }
     }
 
