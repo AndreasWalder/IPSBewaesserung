@@ -1,7 +1,8 @@
 <?php
-class IPSBewaesserung extends IPSModule {
-
-    public function Create() {
+class IPSBewaesserung extends IPSModule
+{
+    public function Create()
+    {
         parent::Create();
         // Übergeordnetes Automatik-Flag
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
@@ -14,18 +15,20 @@ class IPSBewaesserung extends IPSModule {
             $this->EnableAction("Manuell$i");
             $this->RegisterVariableBoolean("Automatik$i", "Automatik Zone $i", "~Switch", 1001 + $i * 10);
             $this->EnableAction("Automatik$i");
-            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (s)", "", 1002 + $i * 10);
+            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (Sekunden)", "", 1002 + $i * 10);
             $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "", 1003 + $i * 10);
             $this->RegisterVariableString("Status$i", "Status Zone $i", "", 1004 + $i * 10);
         }
-        $this->RegisterTimer("EvaluateTimer", 60000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);'); // 1 Sekunde, für flotte Reaktion!
     }
 
-    public function ApplyChanges() {
+    public function ApplyChanges()
+    {
         parent::ApplyChanges();
     }
 
-    public function RequestAction($Ident, $Value) {
+    public function RequestAction($Ident, $Value)
+    {
         if ($Ident == "Evaluate") {
             $this->Evaluate();
             return;
@@ -33,7 +36,8 @@ class IPSBewaesserung extends IPSModule {
         SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
-    public function Evaluate() {
+    public function Evaluate()
+    {
         $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
@@ -61,21 +65,19 @@ class IPSBewaesserung extends IPSModule {
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
             $statusID = $this->GetIDForIdent("Status$i");
 
-            // 1. Manuell-Modus geht immer vor, Status sauber mitführen!
+            // 1. Manuell-Modus hat Vorrang, Status immer aktuell!
             if ($manuell) {
-                $currentState = false;
                 if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
-                    $currentState = GetValue($aktorID);
+                    RequestAction($aktorID, true);
                 }
-                if ($currentState) {
-                    SetValueString($statusID, "Manuell eingeschaltet");
-                } else {
-                    SetValueString($statusID, "Manuell ausgeschaltet");
-                }
-                if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
-                    RequestAction($aktorID, $currentState);
-                }
+                SetValueString($statusID, "Manuell eingeschaltet");
                 continue;
+            } else {
+                // Falls vorher manuell AN war, jetzt AUS
+                if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
+                    RequestAction($aktorID, false);
+                }
+                SetValueString($statusID, "Manuell ausgeschaltet");
             }
 
             // 2. Automatik-Liste nur befüllen, wenn manuell NICHT aktiv ist!
@@ -116,13 +118,14 @@ class IPSBewaesserung extends IPSModule {
                         RequestAction($z['aktorID'], true);
                     }
                     $rest = $ende - $now;
-                    SetValueString($z['statusID'], "Automatik läuft noch " . round($rest / 60) . " Min. (Prio $prio)");
+                    SetValueString($z['statusID'], "Automatik läuft noch " . $rest . " Sek. (Prio $prio)");
                     $this->LogZoneStatus($z['index'], "Automatik gestartet (Prio $prio)", $start);
                 } else {
                     if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
                         RequestAction($z['aktorID'], false);
                     }
-                    SetValueString($z['statusID'], "Automatik Start in " . round(($start - $now) / 60) . " Min. (Prio $prio)");
+                    $wait = $start - $now;
+                    SetValueString($z['statusID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
                     if ($now == $ende) {
                         $this->LogZoneStatus($z['index'], "Automatik beendet (Prio $prio)", $ende);
                     }
@@ -133,10 +136,11 @@ class IPSBewaesserung extends IPSModule {
         }
     }
 
-    private function LogZoneStatus($zone, $status, $zeit) {
+    private function LogZoneStatus($zone, $status, $zeit)
+    {
         $logMsg = "Zone $zone $status um " . date("d.m.Y H:i:s", $zeit);
         IPS_LogMessage("IPSBewaesserung", $logMsg);
-        // Alternativ: Log in eine String-Variable oder in eine Datei schreiben
+        // Optional: Log in String-Variable
     }
 
     public function GetConfigurationForm()
