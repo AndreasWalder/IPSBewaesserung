@@ -9,27 +9,35 @@ class IPSBewaesserung extends IPSModule
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
 
+        $this->RegisterPropertyInteger("ZoneCount", 1); // Standard: 1 Zone!
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
         $this->EnableAction("GesamtAutomatik");
-
-        $this->RegisterPropertyInteger("ZoneCount", 10);
-        for ($i = 1; $i <= 10; $i++) {
-            $this->RegisterPropertyInteger("AktorID$i", 0);
-            $this->RegisterVariableBoolean("Manuell$i", "Manuell Zone $i", "~Switch", 1000 + $i * 10);
-            $this->EnableAction("Manuell$i");
-            $this->RegisterVariableBoolean("Automatik$i", "Automatik Zone $i", "~Switch", 1001 + $i * 10);
-            $this->EnableAction("Automatik$i");
-            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (Sekunden)", "", 1002 + $i * 10);
-            $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "", 1003 + $i * 10);
-            $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
-            $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
-        }
-        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+        $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            $this->RegisterPropertyInteger("AktorID$i", 0);
+
+            $this->RegisterVariableBoolean("Manuell$i", "Manuell Zone $i", "~Switch", 1000 + $i * 10);
+            $this->EnableAction("Manuell$i");
+
+            $this->RegisterVariableBoolean("Automatik$i", "Automatik Zone $i", "~Switch", 1001 + $i * 10);
+            $this->EnableAction("Automatik$i");
+
+            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (Sekunden)", "~Intensity.100", 1002 + $i * 10);
+            $this->EnableAction("Dauer$i");
+
+            $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "~Intensity.100", 1003 + $i * 10);
+            $this->EnableAction("Prio$i");
+
+            $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
+            $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
+        }
+        // Timer starten
+        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
     public function RequestAction($Ident, $Value)
@@ -38,15 +46,14 @@ class IPSBewaesserung extends IPSModule
             $this->Evaluate();
             return;
         }
+        // Dauer und Prio sind jetzt auch "enableAction" und damit schaltbar
         SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
     public function Evaluate()
     {
-        IPS_LogMessage("IPSBewaesserung", "Evaluate aufgerufen!");
         $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-
         $manualBlocked = [];
 
         // 1. Manuell hat Vorrang
@@ -58,16 +65,14 @@ class IPSBewaesserung extends IPSModule
 
             if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
                 if ($manuell) {
-                    IPS_LogMessage("IPSBewaesserung", "Zone $i MANUELL EIN → Schalte AktorID $aktorID auf EIN");
                     RequestAction($aktorID, true);
                     SetValueBoolean($statusID, true);
                     SetValueString($infoID, "Manuell eingeschaltet");
                     $manualBlocked[] = $i;
-                    continue; // Automatik für diese Zone gesperrt
+                    continue;
                 }
-                // Bei Manuell AUS: Automatik entscheidet gleich.
+                // Bei Manuell AUS: Automatik entscheidet gleich
             } else {
-                IPS_LogMessage("IPSBewaesserung", "Zone $i: KEINE gültige AktorID!");
                 SetValueBoolean($statusID, false);
                 SetValueString($infoID, "Keine AktorID");
                 $manualBlocked[] = $i;
@@ -77,7 +82,6 @@ class IPSBewaesserung extends IPSModule
 
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
         if (!$gesamtAuto) {
-            IPS_LogMessage("IPSBewaesserung", "GesamtAutomatik ist AUS → Automatik wird NICHT ausgeführt.");
             $this->ResetAllPrioStarts();
             return;
         }
@@ -86,7 +90,6 @@ class IPSBewaesserung extends IPSModule
         $prioMap = [];
         for ($i = 1; $i <= $zoneCount; $i++) {
             if (in_array($i, $manualBlocked)) {
-                IPS_LogMessage("IPSBewaesserung", "Zone $i: Automatik GESPERRT (manuell oder keine AktorID)");
                 continue;
             }
             $auto = GetValue($this->GetIDForIdent("Automatik$i"));
@@ -97,7 +100,6 @@ class IPSBewaesserung extends IPSModule
             $infoID = $this->GetIDForIdent("Info$i");
 
             if ($auto) {
-                IPS_LogMessage("IPSBewaesserung", "Zone $i für Automatik freigegeben (Prio $prio, Dauer $dauer Sek, AktorID $aktorID)");
                 if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
                 $prioMap[$prio][] = [
                     'index' => $i,
@@ -106,29 +108,23 @@ class IPSBewaesserung extends IPSModule
                     'statusID' => $statusID,
                     'infoID' => $infoID
                 ];
-            } else {
-                IPS_LogMessage("IPSBewaesserung", "Zone $i: Automatik NICHT aktiv.");
             }
         }
 
         if (empty($prioMap)) {
-            IPS_LogMessage("IPSBewaesserung", "KEINE Zonen für Automatik aktiv → Prio-Zeiten werden zurückgesetzt.");
             $this->ResetAllPrioStarts();
             return;
         }
 
-        // Automatik-Steuerung pro Prio
         ksort($prioMap, SORT_NUMERIC);
         $globalOffset = 0;
         foreach ($prioMap as $prio => $zoneArray) {
             $startAttr = "StartPrio" . $prio;
             $prioDauer = $this->getPrioDauer($zoneArray);
 
-            // Startzeit prüfen/setzen
             $startPrio = $this->ReadAttributeInteger($startAttr);
             if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
                 $startPrio = $now + $globalOffset;
-                IPS_LogMessage("IPSBewaesserung", "Prio $prio: Setze neuen Startzeitpunkt: $startPrio (Offset: $globalOffset)");
                 $this->WriteAttributeInteger($startAttr, $startPrio);
             }
 
@@ -140,7 +136,6 @@ class IPSBewaesserung extends IPSModule
                 $nowActive = ($now >= $startPrio && $now < $ende);
                 if ($nowActive) {
                     if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
-                        IPS_LogMessage("IPSBewaesserung", "AUTOMATIK: Zone {$z['index']} (Prio $prio) EIN für $z[dauer] Sek. (Rest: " . ($ende-$now) . ")");
                         RequestAction($z['aktorID'], true);
                         SetValueBoolean($z['statusID'], true);
                     }
@@ -148,7 +143,6 @@ class IPSBewaesserung extends IPSModule
                     SetValueString($z['infoID'], "Automatik läuft noch " . $rest . " Sek. (Prio $prio)");
                 } else {
                     if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
-                        IPS_LogMessage("IPSBewaesserung", "AUTOMATIK: Zone {$z['index']} (Prio $prio) AUS");
                         RequestAction($z['aktorID'], false);
                         SetValueBoolean($z['statusID'], false);
                     }
