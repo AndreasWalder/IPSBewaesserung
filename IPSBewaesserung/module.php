@@ -4,7 +4,8 @@ class IPSBewaesserung extends IPSModule
     public function Create()
     {
         parent::Create();
-        // Eigene Profile für Dauer und Priorität (werden nur 1x angelegt!)
+
+        // Profile für Dauer und Prio
         if (!IPS_VariableProfileExists("IPSBW.Duration")) {
             IPS_CreateVariableProfile("IPSBW.Duration", 1);
             IPS_SetVariableProfileText("IPSBW.Duration", "", " s");
@@ -17,22 +18,31 @@ class IPSBewaesserung extends IPSModule
             IPS_SetVariableProfileValues("IPSBW.Prioritaet", 1, 20, 1);
         }
 
+        $this->RegisterPropertyInteger("ZoneCount", 1);
+        for ($i = 1; $i <= 10; $i++) {
+            $this->RegisterPropertyInteger("AktorID$i", 0);
+        }
+
+        $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
+        $this->EnableAction("GesamtAutomatik");
+
+        // Prio-Startzeiten
         for ($p = 0; $p <= 99; $p++) {
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
-
-        $this->RegisterPropertyInteger("ZoneCount", 1);
-        $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
-        $this->EnableAction("GesamtAutomatik");
+        // Timer nur hier registrieren
+        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        for ($i = 1; $i <= $zoneCount; $i++) {
-            $this->RegisterPropertyInteger("AktorID$i", 0);
+        if ($zoneCount < 1) $zoneCount = 1;
+        if ($zoneCount > 10) $zoneCount = 10;
 
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            // Keine Property mehr registrieren!
             $this->RegisterVariableBoolean("Manuell$i", "Manuell Zone $i", "~Switch", 1000 + $i * 10);
             $this->EnableAction("Manuell$i");
 
@@ -48,15 +58,15 @@ class IPSBewaesserung extends IPSModule
             $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
             $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
 
-            // Hinweis, falls keine AktorID gewählt!
+            // Warnung bei fehlender AktorID
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
             $infoID = $this->GetIDForIdent("Info$i");
             if ($aktorID == 0) {
                 SetValueString($infoID, "Bitte KNX-Aktor für Zone $i auswählen!");
             }
         }
-        // Timer starten
-        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        // Timer-Intervall nachziehen
+        $this->SetTimerInterval("EvaluateTimer", 1000);
     }
 
     public function RequestAction($Ident, $Value)
@@ -72,9 +82,10 @@ class IPSBewaesserung extends IPSModule
     {
         $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+        if ($zoneCount < 1) $zoneCount = 1;
+        if ($zoneCount > 10) $zoneCount = 10;
         $manualBlocked = [];
 
-        // 1. Manuell hat Vorrang
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -89,7 +100,6 @@ class IPSBewaesserung extends IPSModule
                     $manualBlocked[] = $i;
                     continue;
                 }
-                // Bei Manuell AUS: Automatik entscheidet gleich
             } else {
                 SetValueBoolean($statusID, false);
                 SetValueString($infoID, "Keine AktorID");
@@ -104,12 +114,9 @@ class IPSBewaesserung extends IPSModule
             return;
         }
 
-        // PrioMap: Nur Zonen mit Automatik UND Manuell AUS
         $prioMap = [];
         for ($i = 1; $i <= $zoneCount; $i++) {
-            if (in_array($i, $manualBlocked)) {
-                continue;
-            }
+            if (in_array($i, $manualBlocked)) continue;
             $auto = GetValue($this->GetIDForIdent("Automatik$i"));
             $prio = GetValue($this->GetIDForIdent("Prio$i"));
             $dauer = GetValue($this->GetIDForIdent("Dauer$i"));
