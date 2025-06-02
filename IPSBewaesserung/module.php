@@ -1,11 +1,9 @@
-
 <?php
 class IPSBewaesserung extends IPSModule
 {
     public function Create()
     {
         parent::Create();
-        // Übergeordnetes Automatik-Flag
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
         $this->EnableAction("GesamtAutomatik");
 
@@ -19,13 +17,13 @@ class IPSBewaesserung extends IPSModule
             $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (Sekunden)", "", 1002 + $i * 10);
             $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "", 1003 + $i * 10);
 
-            // NEU: Statusanzeige (nur lesend, nicht schaltbar)
-            $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1005 + $i * 10);
-            IPS_SetVariableCustomProfile($this->GetIDForIdent("Status$i"), "~Switch"); // Lesend, kein Aktor
+            // Nur anzeigende Statusvariable (nicht schaltbar! kein EnableAction, kein Profil-Setzen!)
+            $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
+
             // Info als String (ehemals Status)
-            $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1004 + $i * 10);
+            $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
         }
-        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);'); // 1 Sekunde, für flotte Reaktion!
+        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
     public function ApplyChanges()
@@ -47,7 +45,7 @@ class IPSBewaesserung extends IPSModule
         $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
 
-        // Manuell hat immer Vorrang - auch wenn Automatik global AUS ist!
+        // 1. Manuell pro Zone immer Vorrang und immer direkt Status setzen!
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -70,14 +68,14 @@ class IPSBewaesserung extends IPSModule
             }
         }
 
-        // Danach: Nur Automatik machen für Zonen, deren Manuell AUS ist und wenn GesamtAutomatik EIN
+        // 2. Automatik (nur wenn GesamtAutomatik EIN und Manuell AUS pro Zone)
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
         if (!$gesamtAuto) {
             // Automatik global aus, Rest ist schon gestoppt
             return;
         }
 
-        // Zonen nach Prio einsammeln, aber NUR, wenn Manuell AUS ist!
+        // PrioMap: Alle Zonen, die auf Automatik UND Manuell AUS stehen
         $prioMap = [];
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
