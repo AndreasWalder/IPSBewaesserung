@@ -26,7 +26,7 @@ class IPSBewaesserung extends IPSModule
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
         $this->EnableAction("GesamtAutomatik");
 
-        // Prio-Startzeiten
+        // Prio-Startzeiten (jetzt: -1 = fertig, 0 = nicht gestartet, >0 = aktiv)
         for ($p = 0; $p <= 99; $p++) {
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
@@ -65,12 +65,27 @@ class IPSBewaesserung extends IPSModule
             }
         }
         $this->SetTimerInterval("EvaluateTimer", 1000);
+
+        // Nach Änderung: alle Prio wieder „offen“
+        $this->ResetAllPrioStarts();
     }
 
     public function RequestAction($Ident, $Value)
     {
         if ($Ident == "Evaluate") {
             $this->Evaluate();
+            return;
+        }
+        if ($Ident == "ResetAll") {
+            $this->ResetAllPrioStarts();
+            return;
+        }
+        if ($Ident == "GesamtAutomatik") {
+            // JEDES MAL bei Einschalten: alle Prio auf Anfang!
+            if ($Value) {
+                $this->ResetAllPrioStarts();
+            }
+            SetValue($this->GetIDForIdent($Ident), $Value);
             return;
         }
         SetValue($this->GetIDForIdent($Ident), $Value);
@@ -86,7 +101,7 @@ class IPSBewaesserung extends IPSModule
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
 
         if ($gesamtAuto) {
-            // AUTOMATIK HAT VORRANG, MANUELL WIRD IGNORIERT!
+            // Automatik hat Vorrang, Manuell ist gesperrt
             for ($i = 1; $i <= $zoneCount; $i++) {
                 $aktorID = $this->ReadPropertyInteger("AktorID$i");
                 $statusID = $this->GetIDForIdent("Status$i");
@@ -94,14 +109,13 @@ class IPSBewaesserung extends IPSModule
 
                 if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
                     SetValueString($infoID, "Automatik aktiv, Manuell gesperrt");
-                    // Status wird durch Automatiklogik gesetzt
                 } else {
                     SetValueBoolean($statusID, false);
                     SetValueString($infoID, "Keine AktorID");
                 }
             }
 
-            // ----- Automatik-Logik (wie gehabt) -----
+            // Automatik-Logik mit Prio-Status „fertig“-Prüfung
             $prioMap = [];
             for ($i = 1; $i <= $zoneCount; $i++) {
                 $auto = GetValue($this->GetIDForIdent("Automatik$i"));
@@ -135,9 +149,30 @@ class IPSBewaesserung extends IPSModule
                 $prioDauer = $this->getPrioDauer($zoneArray);
 
                 $startPrio = $this->ReadAttributeInteger($startAttr);
-                if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
+
+                // Bereits erledigte Prio (=-1) überspringen
+                if ($startPrio === -1) {
+                    foreach ($zoneArray as $z) {
+                        SetValueBoolean($z['statusID'], false);
+                        SetValueString($z['infoID'], "Automatik für Prio $prio bereits erledigt");
+                    }
+                    continue;
+                }
+
+                // Starten, wenn noch nie gelaufen oder aus vorherigem Reset
+                if ($startPrio <= 0) {
                     $startPrio = $now + $globalOffset;
                     $this->WriteAttributeInteger($startAttr, $startPrio);
+                }
+
+                // Prio fertig? Dann als erledigt markieren und nie wieder starten!
+                if ($now > $startPrio + $prioDauer) {
+                    $this->WriteAttributeInteger($startAttr, -1);
+                    foreach ($zoneArray as $z) {
+                        SetValueBoolean($z['statusID'], false);
+                        SetValueString($z['infoID'], "Automatik für Prio $prio erledigt");
+                    }
+                    continue;
                 }
 
                 $maxDauer = 0;
@@ -170,6 +205,7 @@ class IPSBewaesserung extends IPSModule
             foreach ($prioMap as $prio => $zoneArray) {
                 $startAttr = "StartPrio" . $prio;
                 $startPrio = $this->ReadAttributeInteger($startAttr);
+                if ($startPrio === -1) continue; // fertig
                 foreach ($zoneArray as $z) {
                     $ende = $startPrio + $z['dauer'];
                     if ($now >= $startPrio && $now < $ende) {
@@ -220,6 +256,7 @@ class IPSBewaesserung extends IPSModule
         return $max;
     }
 
+    // Setzt ALLE Prio-Startzeiten auf "offen" (beim Übernehmen, Button oder Automatik-Start)
     private function ResetAllPrioStarts()
     {
         for ($prio = 0; $prio <= 99; $prio++) {
@@ -250,9 +287,18 @@ class IPSBewaesserung extends IPSModule
             ];
         }
 
+        // Zusatz-Button: Alle Prio zurücksetzen (optional)
+        $actions = [
+            [
+                "type"    => "Button",
+                "caption" => "Alle Automatik-Prio wieder freigeben",
+                "onClick" => "IPS_RequestAction($id, 'ResetAll', 0);"
+            ]
+        ];
+
         $form = [
             "elements" => $elements,
-            "actions"  => []
+            "actions"  => $actions
         ];
 
         return json_encode($form);
