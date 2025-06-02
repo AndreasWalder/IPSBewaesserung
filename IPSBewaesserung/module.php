@@ -16,11 +16,7 @@ class IPSBewaesserung extends IPSModule
             $this->EnableAction("Automatik$i");
             $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i (Sekunden)", "", 1002 + $i * 10);
             $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "", 1003 + $i * 10);
-
-            // Nur anzeigende Statusvariable (nicht schaltbar! kein EnableAction, kein Profil-Setzen!)
             $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
-
-            // Info als String (ehemals Status)
             $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
         }
         $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
@@ -71,7 +67,8 @@ class IPSBewaesserung extends IPSModule
         // 2. Automatik (nur wenn GesamtAutomatik EIN und Manuell AUS pro Zone)
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
         if (!$gesamtAuto) {
-            // Automatik global aus, Rest ist schon gestoppt
+            // Alle Startzeiten zurücksetzen, damit bei neuem Start frisch gezählt wird
+            $this->ResetAllPrioStarts();
             return;
         }
 
@@ -99,19 +96,31 @@ class IPSBewaesserung extends IPSModule
         }
 
         if (empty($prioMap)) {
+            $this->ResetAllPrioStarts();
             return; // Keine Zonen für Automatik aktiv
         }
 
+        // Für jede Prio-Stufe persistenten Startzeitpunkt merken und verwenden
         ksort($prioMap, SORT_NUMERIC);
-        $offset = 0;
+        $globalOffset = 0;
         foreach ($prioMap as $prio => $zoneArray) {
-            $start = $now + $offset;
+            $startAttr = "StartPrio" . $prio;
+            $prioDauer = $this->getPrioDauer($zoneArray);
+
+            // Startzeit prüfen/setzen
+            $startPrio = intval($this->GetAttribute($startAttr));
+            if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
+                // Startzeit NICHT gesetzt oder abgelaufen -> NEU setzen
+                $startPrio = $now + $globalOffset;
+                $this->SetAttribute($startAttr, $startPrio);
+            }
+
             $maxDauer = 0;
             foreach ($zoneArray as $z) {
-                $ende = $start + $z['dauer'];
+                $ende = $startPrio + $z['dauer'];
                 if ($z['dauer'] > $maxDauer) $maxDauer = $z['dauer'];
 
-                $nowActive = ($now >= $start && $now < $ende);
+                $nowActive = ($now >= $startPrio && $now < $ende);
                 if ($nowActive) {
                     if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
                         RequestAction($z['aktorID'], true);
@@ -119,28 +128,34 @@ class IPSBewaesserung extends IPSModule
                     }
                     $rest = $ende - $now;
                     SetValueString($z['infoID'], "Automatik läuft noch " . $rest . " Sek. (Prio $prio)");
-                    $this->LogZoneStatus($z['index'], "Automatik gestartet (Prio $prio)", $start);
                 } else {
                     if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
                         RequestAction($z['aktorID'], false);
                         SetValueBoolean($z['statusID'], false);
                     }
-                    $wait = $start - $now;
+                    $wait = $startPrio - $now;
                     SetValueString($z['infoID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
-                    if ($now == $ende) {
-                        $this->LogZoneStatus($z['index'], "Automatik beendet (Prio $prio)", $ende);
-                    }
                 }
             }
-            $offset += $maxDauer;
+            $globalOffset += $maxDauer;
         }
     }
 
-    private function LogZoneStatus($zone, $status, $zeit)
+    private function getPrioDauer($zoneArray)
     {
-        $logMsg = "Zone $zone $status um " . date("d.m.Y H:i:s", $zeit);
-        IPS_LogMessage("IPSBewaesserung", $logMsg);
-        // Optional: Log in String-Variable
+        $max = 0;
+        foreach ($zoneArray as $z) {
+            if ($z['dauer'] > $max) $max = $z['dauer'];
+        }
+        return $max;
+    }
+
+    // Alle Startzeiten für Prio-Gruppen zurücksetzen
+    private function ResetAllPrioStarts()
+    {
+        for ($prio = 0; $prio <= 99; $prio++) {
+            $this->SetAttribute("StartPrio" . $prio, 0);
+        }
     }
 
     public function GetConfigurationForm()
