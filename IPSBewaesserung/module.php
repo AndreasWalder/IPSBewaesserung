@@ -3,6 +3,10 @@ class IPSBewaesserung extends IPSModule {
 
     public function Create() {
         parent::Create();
+        // Übergeordnetes Automatik-Flag
+        $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
+        $this->EnableAction("GesamtAutomatik");
+
         $this->RegisterPropertyInteger("ZoneCount", 10);
         for ($i = 1; $i <= 10; $i++) {
             $this->RegisterPropertyInteger("AktorID$i", 0);
@@ -14,7 +18,6 @@ class IPSBewaesserung extends IPSModule {
             $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "", 1003 + $i * 10);
             $this->RegisterVariableString("Status$i", "Status Zone $i", "", 1004 + $i * 10);
         }
-        // Korrigierter Timer-Aufruf:
         $this->RegisterTimer("EvaluateTimer", 60000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
@@ -23,7 +26,6 @@ class IPSBewaesserung extends IPSModule {
     }
 
     public function RequestAction($Ident, $Value) {
-        // Erweiterung: Timer kann "Evaluate" aufrufen!
         if ($Ident == "Evaluate") {
             $this->Evaluate();
             return;
@@ -34,7 +36,21 @@ class IPSBewaesserung extends IPSModule {
     public function Evaluate() {
         $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        $zones = [];
+        $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
+
+        if (!$gesamtAuto) {
+            // Automatik global AUS: Alles stoppen
+            for ($i = 1; $i <= $zoneCount; $i++) {
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                $statusID = $this->GetIDForIdent("Status$i");
+                RequestAction($aktorID, false);
+                SetValueString($statusID, "Automatik global aus");
+            }
+            return;
+        }
+
+        // Zonen nach Prio einsammeln
+        $prioMap = []; // prio => array of zone-arrays
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $auto = GetValue($this->GetIDForIdent("Automatik$i"));
@@ -43,16 +59,24 @@ class IPSBewaesserung extends IPSModule {
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
             $statusID = $this->GetIDForIdent("Status$i");
 
+            // 1. Manuell-Modus geht immer vor, Status sauber mitführen!
             if ($manuell) {
-                RequestAction($aktorID, true);
-                SetValueString($statusID, "Manuell aktiv");
+                $currentState = GetValue($aktorID);
+                if ($currentState) {
+                    SetValueString($statusID, "Manuell eingeschaltet");
+                } else {
+                    SetValueString($statusID, "Manuell ausgeschaltet");
+                }
+                // Im Manuell-Modus darf Automatik nichts schalten
+                RequestAction($aktorID, $currentState); // optional redundant
                 continue;
             }
 
+            // 2. Automatik-Liste nur befüllen, wenn manuell NICHT aktiv ist!
             if ($auto) {
-                $zones[] = [
+                if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
+                $prioMap[$prio][] = [
                     'index' => $i,
-                    'prio' => $prio,
                     'dauer' => $dauer,
                     'aktorID' => $aktorID,
                     'statusID' => $statusID
@@ -63,22 +87,44 @@ class IPSBewaesserung extends IPSModule {
             }
         }
 
-        usort($zones, fn($a, $b) => $a['prio'] <=> $b['prio']);
-        $offset = 0;
-        foreach ($zones as $z) {
-            $start = $now + $offset;
-            $ende = $start + $z['dauer'];
-            $nowActive = $now >= $start && $now < $ende;
-            if ($nowActive) {
-                RequestAction($z['aktorID'], true);
-                $rest = $ende - $now;
-                SetValueString($z['statusID'], "Läuft noch " . round($rest / 60) . " Min.");
-            } else {
-                RequestAction($z['aktorID'], false);
-                SetValueString($z['statusID'], "Start in " . round(($start - $now) / 60) . " Min.");
-            }
-            $offset += $z['dauer'];
+        if (empty($prioMap)) {
+            return; // Keine Zonen für Automatik aktiv
         }
+
+        // Prio-Liste sortieren (aufsteigend, niedrigste Prio zuerst)
+        ksort($prioMap, SORT_NUMERIC);
+        $offset = 0;
+        foreach ($prioMap as $prio => $zoneArray) {
+            // Jede Prio-Stufe gemeinsam schalten!
+            $start = $now + $offset;
+            $maxDauer = 0;
+            foreach ($zoneArray as $z) {
+                $ende = $start + $z['dauer'];
+                if ($z['dauer'] > $maxDauer) $maxDauer = $z['dauer'];
+
+                $nowActive = ($now >= $start && $now < $ende);
+                if ($nowActive) {
+                    RequestAction($z['aktorID'], true);
+                    $rest = $ende - $now;
+                    SetValueString($z['statusID'], "Automatik läuft noch " . round($rest / 60) . " Min. (Prio $prio)");
+                    $this->LogZoneStatus($z['index'], "Automatik gestartet (Prio $prio)", $start);
+                } else {
+                    RequestAction($z['aktorID'], false);
+                    SetValueString($z['statusID'], "Automatik Start in " . round(($start - $now) / 60) . " Min. (Prio $prio)");
+                    if ($now == $ende) {
+                        $this->LogZoneStatus($z['index'], "Automatik beendet (Prio $prio)", $ende);
+                    }
+                }
+            }
+            // Für die nächste Prio-Ebene: max. Dauer dieser Prio addieren!
+            $offset += $maxDauer;
+        }
+    }
+
+    private function LogZoneStatus($zone, $status, $zeit) {
+        $logMsg = "Zone $zone $status um " . date("d.m.Y H:i:s", $zeit);
+        IPS_LogMessage("IPSBewaesserung", $logMsg);
+        // Alternativ: Log in eine String-Variable oder in eine Datei schreiben
     }
 
     public function GetConfigurationForm()
