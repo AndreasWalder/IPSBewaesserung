@@ -46,7 +46,9 @@ class IPSBewaesserung extends IPSModule
         $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
 
-        // 1. Manuell pro Zone immer Vorrang und immer direkt Status setzen!
+        // 1. Manuell hat immer Vorrang
+        $manualBlocked = []; // Merker für Zonen mit aktivem Manuell
+
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -58,28 +60,31 @@ class IPSBewaesserung extends IPSModule
                     RequestAction($aktorID, true);
                     SetValueBoolean($statusID, true);
                     SetValueString($infoID, "Manuell eingeschaltet");
-                } else {
-                    RequestAction($aktorID, false);
-                    SetValueBoolean($statusID, false);
-                    SetValueString($infoID, "Manuell ausgeschaltet");
+                    $manualBlocked[] = $i;
+                    continue; // Automatik darf diese Zone nicht behandeln!
                 }
+                // Bei Manuell AUS entscheidet Automatik später.
             } else {
                 SetValueBoolean($statusID, false);
                 SetValueString($infoID, "Keine AktorID");
+                $manualBlocked[] = $i; // Diese Zone ignorieren wir auch für Automatik
+                continue;
             }
         }
 
-        // 2. Automatik (nur wenn GesamtAutomatik EIN und Manuell AUS pro Zone)
+        // 2. Automatik (nur für Zonen ohne aktives Manuell)
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
         if (!$gesamtAuto) {
             $this->ResetAllPrioStarts();
             return;
         }
 
-        // PrioMap: Alle Zonen, die auf Automatik UND Manuell AUS stehen
+        // PrioMap: Zonen, die auf Automatik UND Manuell AUS stehen
         $prioMap = [];
         for ($i = 1; $i <= $zoneCount; $i++) {
-            $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
+            if (in_array($i, $manualBlocked)) {
+                continue; // Von Manuell oder fehlender AktorID blockiert
+            }
             $auto = GetValue($this->GetIDForIdent("Automatik$i"));
             $prio = GetValue($this->GetIDForIdent("Prio$i"));
             $dauer = GetValue($this->GetIDForIdent("Dauer$i"));
@@ -87,7 +92,7 @@ class IPSBewaesserung extends IPSModule
             $statusID = $this->GetIDForIdent("Status$i");
             $infoID = $this->GetIDForIdent("Info$i");
 
-            if (!$manuell && $auto) {
+            if ($auto) {
                 if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
                 $prioMap[$prio][] = [
                     'index' => $i,
