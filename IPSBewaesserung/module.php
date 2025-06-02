@@ -4,6 +4,11 @@ class IPSBewaesserung extends IPSModule
     public function Create()
     {
         parent::Create();
+        // Prio-Startzeiten registrieren
+        for ($p = 0; $p <= 99; $p++) {
+            $this->RegisterAttributeInteger("StartPrio$p", 0);
+        }
+
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
         $this->EnableAction("GesamtAutomatik");
 
@@ -67,7 +72,6 @@ class IPSBewaesserung extends IPSModule
         // 2. Automatik (nur wenn GesamtAutomatik EIN und Manuell AUS pro Zone)
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
         if (!$gesamtAuto) {
-            // Alle Startzeiten zurücksetzen, damit bei neuem Start frisch gezählt wird
             $this->ResetAllPrioStarts();
             return;
         }
@@ -108,11 +112,11 @@ class IPSBewaesserung extends IPSModule
             $prioDauer = $this->getPrioDauer($zoneArray);
 
             // Startzeit prüfen/setzen
-            $startPrio = intval($this->GetAttribute($startAttr));
+            $startPrio = $this->GetAttributeInteger($startAttr);
             if ($startPrio <= 0 || $now > $startPrio + $prioDauer) {
                 // Startzeit NICHT gesetzt oder abgelaufen -> NEU setzen
                 $startPrio = $now + $globalOffset;
-                $this->SetAttribute($startAttr, $startPrio);
+                $this->SetAttributeInteger($startAttr, $startPrio);
             }
 
             $maxDauer = 0;
@@ -150,11 +154,10 @@ class IPSBewaesserung extends IPSModule
         return $max;
     }
 
-    // Alle Startzeiten für Prio-Gruppen zurücksetzen
     private function ResetAllPrioStarts()
     {
         for ($prio = 0; $prio <= 99; $prio++) {
-            $this->SetAttribute("StartPrio" . $prio, 0);
+            $this->SetAttributeInteger("StartPrio" . $prio, 0);
         }
     }
 
