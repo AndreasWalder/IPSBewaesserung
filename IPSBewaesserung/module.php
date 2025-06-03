@@ -153,8 +153,7 @@ class IPSBewaesserung extends IPSModule
                 // Bereits erledigte Prio (=-1) überspringen
                 if ($startPrio === -1) {
                     foreach ($zoneArray as $z) {
-                        SetValueBoolean($z['statusID'], false);
-                        SetValueString($z['infoID'], "Automatik für Prio $prio bereits erledigt");
+                        $this->SafeSetValueBoolean($z['statusID'], false, $z['infoID'], "Automatik für Prio $prio bereits erledigt");
                     }
                     continue;
                 }
@@ -169,8 +168,7 @@ class IPSBewaesserung extends IPSModule
                 if ($now > $startPrio + $prioDauer) {
                     $this->WriteAttributeInteger($startAttr, -1);
                     foreach ($zoneArray as $z) {
-                        SetValueBoolean($z['statusID'], false);
-                        SetValueString($z['infoID'], "Automatik für Prio $prio erledigt");
+                        $this->SafeSetValueBoolean($z['statusID'], false, $z['infoID'], "Automatik für Prio $prio erledigt");
                     }
                     continue;
                 }
@@ -182,17 +180,11 @@ class IPSBewaesserung extends IPSModule
 
                     $nowActive = ($now >= $startPrio && $now < $ende);
                     if ($nowActive) {
-                        if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
-                            RequestAction($z['aktorID'], true);
-                            SetValueBoolean($z['statusID'], true);
-                        }
+                        $this->SafeRequestAction($z['aktorID'], true, $z['statusID'], $z['infoID']);
                         $rest = $ende - $now;
                         SetValueString($z['infoID'], "Automatik läuft noch " . $rest . " Sek. (Prio $prio)");
                     } else {
-                        if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
-                            RequestAction($z['aktorID'], false);
-                            SetValueBoolean($z['statusID'], false);
-                        }
+                        $this->SafeRequestAction($z['aktorID'], false, $z['statusID'], $z['infoID']);
                         $wait = $startPrio - $now;
                         SetValueString($z['infoID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
                     }
@@ -231,13 +223,9 @@ class IPSBewaesserung extends IPSModule
 
             if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
                 if ($manuell) {
-                    RequestAction($aktorID, true);
-                    SetValueBoolean($statusID, true);
-                    SetValueString($infoID, "Manuell eingeschaltet");
+                    $this->SafeRequestAction($aktorID, true, $statusID, $infoID, "Manuell eingeschaltet");
                 } else {
-                    RequestAction($aktorID, false);
-                    SetValueBoolean($statusID, false);
-                    SetValueString($infoID, "Manuell ausgeschaltet");
+                    $this->SafeRequestAction($aktorID, false, $statusID, $infoID, "Manuell ausgeschaltet");
                 }
             } else {
                 SetValueBoolean($statusID, false);
@@ -264,6 +252,38 @@ class IPSBewaesserung extends IPSModule
         }
     }
 
+    // Fehlerbehandlung beim Schalten
+    private function SafeRequestAction($aktorID, $value, $statusID, $infoID, $okText = "")
+    {
+        if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
+            try {
+                if (@RequestAction($aktorID, $value) !== false) {
+                    SetValueBoolean($statusID, $value);
+                    if ($okText != "") {
+                        SetValueString($infoID, $okText);
+                    }
+                } else {
+                    SetValueBoolean($statusID, false);
+                    SetValueString($infoID, "Fehler beim Schalten (RequestAction)!");
+                }
+            } catch (Exception $e) {
+                SetValueBoolean($statusID, false);
+                SetValueString($infoID, "Fehler beim Schalten: " . $e->getMessage());
+            }
+        } else {
+            SetValueBoolean($statusID, false);
+            SetValueString($infoID, "Aktor existiert nicht!");
+        }
+    }
+
+    private function SafeSetValueBoolean($statusID, $value, $infoID, $text = "")
+    {
+        SetValueBoolean($statusID, $value);
+        if ($text != "") {
+            SetValueString($infoID, $text);
+        }
+    }
+
     public function GetConfigurationForm()
     {
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
@@ -287,12 +307,12 @@ class IPSBewaesserung extends IPSModule
             ];
         }
 
-        // Zusatz-Button: Alle Prio zurücksetzen (optional)
+        // Zusatz-Button: Alle Prio zurücksetzen (mit richtiger Instanz-ID!)
         $actions = [
             [
                 "type"    => "Button",
                 "caption" => "Alle Automatik-Prio wieder freigeben",
-                "onClick" => "IPS_RequestAction($id, 'ResetAll', 0);"
+                "onClick" => "IPS_RequestAction(" . $this->InstanceID . ", 'ResetAll', 0);"
             ]
         ];
 
