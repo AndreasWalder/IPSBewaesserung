@@ -197,6 +197,13 @@ class BewaesserungCore extends IPSModule
             SetValue($this->GetIDForIdent("PumpeInfo"), $manPumpe ? "Manuell an" : "Manuell aus");
         }
 
+        // --- Pumpe Aktor ANSTEUERN (neu) ---
+        $pumpeAktorID = $this->ReadPropertyInteger("PumpeAktorID");
+        $pumpeStatus = GetValue($this->GetIDForIdent("PumpeStatus"));
+        if ($pumpeAktorID > 0 && @IPS_ObjectExists($pumpeAktorID)) {
+            @RequestAction($pumpeAktorID, $pumpeStatus);
+        }
+
         if ($gesamtAuto) {
             // Automatik: Nach Prio und Dauer, Zonen nacheinander
             $prioMap = [];
