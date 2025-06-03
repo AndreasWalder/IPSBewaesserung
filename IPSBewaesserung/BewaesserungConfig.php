@@ -49,6 +49,11 @@ trait BewaesserungConfig
         $actions = [
             [
                 "type"    => "Button",
+                "caption" => "Timer neu starten",
+                "onClick" => "IPS_RequestAction(" . $this->InstanceID . ", 'RestartTimer', 0);"
+            ],
+            [
+                "type"    => "Button",
                 "caption" => "Alle Automatik-Prio wieder freigeben",
                 "onClick" => "IPS_RequestAction(" . $this->InstanceID . ", 'ResetAll', 0);"
             ]
