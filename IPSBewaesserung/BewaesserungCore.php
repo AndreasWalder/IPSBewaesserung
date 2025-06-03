@@ -42,39 +42,52 @@ class BewaesserungCore extends IPSModule
     }
 
     public function ApplyChanges()
-    {
-        parent::ApplyChanges();
-        $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        if ($zoneCount < 1) $zoneCount = 1;
-        if ($zoneCount > 10) $zoneCount = 10;
+{
+    parent::ApplyChanges();
+    $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+    if ($zoneCount < 1) $zoneCount = 1;
+    if ($zoneCount > 10) $zoneCount = 10;
 
-        for ($i = 1; $i <= $zoneCount; $i++) {
-            $zoneName = $this->ReadPropertyString("ZoneName$i");
-            $this->RegisterVariableBoolean("Manuell$i", "Manuell $zoneName", "~Switch", 1000 + $i * 10);
-            $this->EnableAction("Manuell$i");
+    for ($i = 1; $i <= $zoneCount; $i++) {
+        $zoneName = $this->ReadPropertyString("ZoneName$i");
 
-            $this->RegisterVariableBoolean("Automatik$i", "Automatik $zoneName", "~Switch", 1001 + $i * 10);
-            $this->EnableAction("Automatik$i");
+        // Variablen registrieren (wie immer)
+        $this->RegisterVariableBoolean("Manuell$i", "Manuell $zoneName", "~Switch", 1000 + $i * 10);
+        $this->EnableAction("Manuell$i");
+        $this->RegisterVariableBoolean("Automatik$i", "Automatik $zoneName", "~Switch", 1001 + $i * 10);
+        $this->EnableAction("Automatik$i");
+        $this->RegisterVariableInteger("Dauer$i", "Dauer $zoneName", "IPSBW.Duration", 1002 + $i * 10);
+        $this->EnableAction("Dauer$i");
+        $this->RegisterVariableInteger("Prio$i", "Priorität $zoneName", "IPSBW.Prioritaet", 1003 + $i * 10);
+        $this->EnableAction("Prio$i");
+        $this->RegisterVariableBoolean("Status$i", "Status $zoneName (EIN/AUS)", "~Switch", 1004 + $i * 10);
+        $this->RegisterVariableString("Info$i", "Info $zoneName", "", 1005 + $i * 10);
 
-            $this->RegisterVariableInteger("Dauer$i", "Dauer $zoneName", "IPSBW.Duration", 1002 + $i * 10);
-            $this->EnableAction("Dauer$i");
+        // Variablen-Namen (Caption) immer updaten!
+        IPS_SetName($this->GetIDForIdent("Manuell$i"), "Manuell $zoneName");
+        IPS_SetName($this->GetIDForIdent("Automatik$i"), "Automatik $zoneName");
+        IPS_SetName($this->GetIDForIdent("Dauer$i"), "Dauer $zoneName");
+        IPS_SetName($this->GetIDForIdent("Prio$i"), "Priorität $zoneName");
+        IPS_SetName($this->GetIDForIdent("Status$i"), "Status $zoneName (EIN/AUS)");
+        IPS_SetName($this->GetIDForIdent("Info$i"), "Info $zoneName");
 
-            $this->RegisterVariableInteger("Prio$i", "Priorität $zoneName", "IPSBW.Prioritaet", 1003 + $i * 10);
-            $this->EnableAction("Prio$i");
-
-            $this->RegisterVariableBoolean("Status$i", "Status $zoneName (EIN/AUS)", "~Switch", 1004 + $i * 10);
-            $this->RegisterVariableString("Info$i", "Info $zoneName", "", 1005 + $i * 10);
-
-            // Warnung bei fehlender AktorID
-            $aktorID = $this->ReadPropertyInteger("AktorID$i");
-            $infoID = $this->GetIDForIdent("Info$i");
-            if ($aktorID == 0) {
-                SetValueString($infoID, "Bitte KNX-Aktor für $zoneName auswählen!");
-            }
+        // Warnung bei fehlender AktorID
+        $aktorID = $this->ReadPropertyInteger("AktorID$i");
+        $infoID = $this->GetIDForIdent("Info$i");
+        if ($aktorID == 0) {
+            SetValueString($infoID, "Bitte KNX-Aktor für $zoneName auswählen!");
         }
-        $this->SetTimerInterval("EvaluateTimer", 1000);
-        $this->ResetAllPrioStarts();
     }
+
+    // Auch Pumpen-Variablen Caption updaten (falls gewünscht)
+    IPS_SetName($this->GetIDForIdent("PumpeManuell"), "Pumpe Manuell");
+    IPS_SetName($this->GetIDForIdent("PumpeStatus"), "Pumpe Status");
+    IPS_SetName($this->GetIDForIdent("PumpeInfo"), "Pumpe Info");
+
+    $this->SetTimerInterval("EvaluateTimer", 1000);
+    $this->ResetAllPrioStarts();
+}
+
 
     public function RequestAction($Ident, $Value)
     {
