@@ -1,7 +1,7 @@
 <?php
 trait BewaesserungHelper
 {
-    private function SafeRequestAction($aktorID, $value, $statusID, $infoID, $okText = "")
+    protected function SafeRequestAction($aktorID, $value, $statusID, $infoID, $okText = "")
     {
         if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
             try {
@@ -24,7 +24,7 @@ trait BewaesserungHelper
         }
     }
 
-    private function SafeSetValueBoolean($statusID, $value, $infoID, $text = "")
+    protected function SafeSetValueBoolean($statusID, $value, $infoID, $text = "")
     {
         SetValueBoolean($statusID, $value);
         if ($text != "") {
@@ -32,14 +32,14 @@ trait BewaesserungHelper
         }
     }
 
-    private function ResetAllPrioStarts()
+    protected function ResetAllPrioStarts()
     {
         for ($prio = 0; $prio <= 99; $prio++) {
             $this->WriteAttributeInteger("StartPrio" . $prio, 0);
         }
     }
 
-    private function getPrioDauer($zoneArray)
+    protected function getPrioDauer($zoneArray)
     {
         $max = 0;
         foreach ($zoneArray as $z) {
