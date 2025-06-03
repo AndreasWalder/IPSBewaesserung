@@ -32,7 +32,7 @@ Ein modernes, flexibles IP-Symcon-Modul zur Steuerung von bis zu 10 Bewässerung
 1. **Repository klonen** in deinen IP-Symcon-Module-Ordner (z. B. `/var/lib/symcon/modules/`):
 
    ```
-   git clone https://github.com/AndreasWalder/IPSymcon-Bewaesserung.git
+   git clone https://github.com/AndreasWalder/IPSBewaesserung
    ```
 
 2. **Symcon-Dienst neu starten**.
