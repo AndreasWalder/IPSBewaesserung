@@ -32,7 +32,7 @@ trait BewaesserungConfig
         // Nebenstelle (Zone 11)
         $elements[] = [
             "type" => "Label",
-            "label" => "Nebenstelle (immer verfügbar):"
+            "caption" => "Nebenstelle (immer verfügbar):"
         ];
         $elements[] = [
             "type" => "SelectObject",
@@ -40,11 +40,6 @@ trait BewaesserungConfig
             "caption" => "KNX Aktor-Variable Nebenstelle"
         ];
 
-        // Pumpe
-        $elements[] = [
-            "type" => "Label",
-            "label" => "Pumpe (optional):"
-        ];
         $elements[] = [
             "type" => "SelectObject",
             "name" => "PumpeAktorID",
@@ -52,11 +47,6 @@ trait BewaesserungConfig
         ];
 
         $actions = [
-            [
-                "type"    => "Button",
-                "caption" => "Timer neu starten",
-                "onClick" => "IPS_RequestAction(" . $this->InstanceID . ", 'RestartTimer', 0);"
-            ],
             [
                 "type"    => "Button",
                 "caption" => "Alle Automatik-Prio wieder freigeben",
