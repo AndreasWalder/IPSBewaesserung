@@ -128,70 +128,176 @@ class BewaesserungCore extends IPSModule
     }
 
     public function RequestAction($Ident, $Value)
-{
-    // Hauptschalter Automatik (setzt auch alle Prio auf Anfang)
-    if ($Ident == "GesamtAutomatik") {
-        if ($Value) {
-            $this->ResetAllPrioStarts();
-        }
-        SetValue($this->GetIDForIdent($Ident), $Value);
-        $this->Evaluate();
-        return;
-    }
-
-    // Pumpe manuell
-    if ($Ident == "PumpeManuell") {
-        SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
-        $this->Evaluate();
-        return;
-    }
-
-    // Normale Zonen 1-10
-    for ($i = 1; $i <= 10; $i++) {
-        if ($Ident == "Manuell$i" || $Ident == "Automatik$i" || $Ident == "Dauer$i" || $Ident == "Prio$i") {
+    {
+        if ($Ident == "GesamtAutomatik") {
+            if ($Value) {
+                $this->ResetAllPrioStarts();
+            }
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->Evaluate();
             return;
         }
-    }
 
-    // Nebenstelle (Zone 11)
-    if ($Ident == "Manuell11" || $Ident == "Automatik11" || $Ident == "Dauer11" || $Ident == "Prio11") {
+        if ($Ident == "PumpeManuell") {
+            SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
+            $this->Evaluate();
+            return;
+        }
+
+        for ($i = 1; $i <= 10; $i++) {
+            if ($Ident == "Manuell$i" || $Ident == "Automatik$i" || $Ident == "Dauer$i" || $Ident == "Prio$i") {
+                SetValue($this->GetIDForIdent($Ident), $Value);
+                $this->Evaluate();
+                return;
+            }
+        }
+
+        if ($Ident == "Manuell11" || $Ident == "Automatik11" || $Ident == "Dauer11" || $Ident == "Prio11") {
+            SetValue($this->GetIDForIdent($Ident), $Value);
+            $this->Evaluate();
+            return;
+        }
+
+        if ($Ident == "ResetAll") {
+            $this->ResetAllPrioStarts();
+            $this->Evaluate();
+            return;
+        }
+
+        if ($Ident == "Evaluate") {
+            $this->Evaluate();
+            return;
+        }
+
         SetValue($this->GetIDForIdent($Ident), $Value);
-        $this->Evaluate();
-        return;
     }
-
-    // ResetAll-Button im Konfigformular
-    if ($Ident == "ResetAll") {
-        $this->ResetAllPrioStarts();
-        $this->Evaluate();
-        return;
-    }
-
-    // Evaluate-Timer (wird alle Sekunde ausgeführt)
-    if ($Ident == "Evaluate") {
-        $this->Evaluate();
-        return;
-    }
-
-    // Fallback: Wert einfach setzen
-    SetValue($this->GetIDForIdent($Ident), $Value);
-}
-
 
     public function Evaluate()
     {
+        $now = time();
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         if ($zoneCount < 1) $zoneCount = 1;
         if ($zoneCount > 10) $zoneCount = 10;
 
-        // Normale Zonen
+        $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
+
+        // Pumpe immer "an", solange Automatik läuft (optional anpassbar!)
+        if ($gesamtAuto) {
+            SetValue($this->GetIDForIdent("PumpeStatus"), true);
+            SetValue($this->GetIDForIdent("PumpeInfo"), "Automatik aktiv");
+        } else {
+            $manPumpe = GetValue($this->GetIDForIdent("PumpeManuell"));
+            SetValue($this->GetIDForIdent("PumpeStatus"), $manPumpe);
+            SetValue($this->GetIDForIdent("PumpeInfo"), $manPumpe ? "Manuell an" : "Manuell aus");
+        }
+
+        if ($gesamtAuto) {
+            // Automatik: Nach Prio und Dauer, Zonen nacheinander
+            $prioMap = [];
+            // Normale Zonen + Nebenstelle einbeziehen
+            for ($i = 1; $i <= $zoneCount + 1; $i++) {
+                $auto = GetValue($this->GetIDForIdent("Automatik$i"));
+                $prio = GetValue($this->GetIDForIdent("Prio$i"));
+                $dauer = GetValue($this->GetIDForIdent("Dauer$i"));
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                $statusID = $this->GetIDForIdent("Status$i");
+                $infoID = $this->GetIDForIdent("Info$i");
+
+                if ($auto && $aktorID > 0 && @IPS_ObjectExists($aktorID)) {
+                    if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
+                    $prioMap[$prio][] = [
+                        'index' => $i,
+                        'dauer' => $dauer,
+                        'aktorID' => $aktorID,
+                        'statusID' => $statusID,
+                        'infoID' => $infoID
+                    ];
+                }
+            }
+            if (empty($prioMap)) {
+                $this->ResetAllPrioStarts();
+                return;
+            }
+
+            ksort($prioMap, SORT_NUMERIC);
+            $globalOffset = 0;
+            foreach ($prioMap as $prio => $zoneArray) {
+                $startAttr = "StartPrio" . $prio;
+                $prioDauer = $this->getPrioDauer($zoneArray);
+                $startPrio = $this->ReadAttributeInteger($startAttr);
+
+                if ($startPrio === -1) {
+                    foreach ($zoneArray as $z) {
+                        SetValueBoolean($z['statusID'], false);
+                        SetValueString($z['infoID'], "Automatik für Prio $prio bereits erledigt");
+                    }
+                    continue;
+                }
+                if ($startPrio <= 0) {
+                    $startPrio = $now + $globalOffset;
+                    $this->WriteAttributeInteger($startAttr, $startPrio);
+                }
+
+                if ($now > $startPrio + $prioDauer) {
+                    $this->WriteAttributeInteger($startAttr, -1);
+                    foreach ($zoneArray as $z) {
+                        SetValueBoolean($z['statusID'], false);
+                        SetValueString($z['infoID'], "Automatik für Prio $prio erledigt");
+                    }
+                    continue;
+                }
+
+                $maxDauer = 0;
+                foreach ($zoneArray as $z) {
+                    $ende = $startPrio + $z['dauer'];
+                    if ($z['dauer'] > $maxDauer) $maxDauer = $z['dauer'];
+                    $nowActive = ($now >= $startPrio && $now < $ende);
+                    if ($nowActive) {
+                        if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
+                            $this->SafeRequestAction($z['aktorID'], true, $z['statusID'], $z['infoID'], "Automatik läuft");
+                        }
+                        $rest = $ende - $now;
+                        SetValueString($z['infoID'], "Automatik läuft noch $rest Sek. (Prio $prio)");
+                    } else {
+                        if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
+                            $this->SafeRequestAction($z['aktorID'], false, $z['statusID'], $z['infoID'], "");
+                        }
+                        $wait = $startPrio - $now;
+                        SetValueString($z['infoID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
+                    }
+                }
+                $globalOffset += $maxDauer;
+            }
+
+            // Prüfen, ob noch Automatik läuft – sonst Automatik abschalten
+            $irgendetwasAktiv = false;
+            foreach ($prioMap as $prio => $zoneArray) {
+                $startAttr = "StartPrio" . $prio;
+                $startPrio = $this->ReadAttributeInteger($startAttr);
+                if ($startPrio === -1) continue;
+                foreach ($zoneArray as $z) {
+                    $ende = $startPrio + $z['dauer'];
+                    if ($now >= $startPrio && $now < $ende) {
+                        $irgendetwasAktiv = true;
+                        break 2;
+                    }
+                }
+            }
+
+            if (!$irgendetwasAktiv) {
+                SetValue($this->GetIDForIdent("GesamtAutomatik"), false);
+            }
+
+            return;
+        }
+
+        // Wenn Automatik aus, dann Manuell zulassen
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
             $statusID = $this->GetIDForIdent("Status$i");
             $infoID = $this->GetIDForIdent("Info$i");
+
             if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
                 if ($manuell) {
                     $this->SafeRequestAction($aktorID, true, $statusID, $infoID, "Manuell eingeschaltet");
@@ -203,7 +309,6 @@ class BewaesserungCore extends IPSModule
                 SetValueString($infoID, "Keine AktorID");
             }
         }
-
         // Nebenstelle (Zone 11)
         $manuell = GetValue($this->GetIDForIdent("Manuell11"));
         $aktorID = $this->ReadPropertyInteger("AktorID11");
