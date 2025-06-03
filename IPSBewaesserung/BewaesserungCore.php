@@ -127,6 +127,59 @@ class BewaesserungCore extends IPSModule
         $this->ResetAllPrioStarts();
     }
 
+    public function RequestAction($Ident, $Value)
+{
+    // Hauptschalter Automatik (setzt auch alle Prio auf Anfang)
+    if ($Ident == "GesamtAutomatik") {
+        if ($Value) {
+            $this->ResetAllPrioStarts();
+        }
+        SetValue($this->GetIDForIdent($Ident), $Value);
+        $this->Evaluate();
+        return;
+    }
+
+    // Pumpe manuell
+    if ($Ident == "PumpeManuell") {
+        SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
+        $this->Evaluate();
+        return;
+    }
+
+    // Normale Zonen 1-10
+    for ($i = 1; $i <= 10; $i++) {
+        if ($Ident == "Manuell$i" || $Ident == "Automatik$i" || $Ident == "Dauer$i" || $Ident == "Prio$i") {
+            SetValue($this->GetIDForIdent($Ident), $Value);
+            $this->Evaluate();
+            return;
+        }
+    }
+
+    // Nebenstelle (Zone 11)
+    if ($Ident == "Manuell11" || $Ident == "Automatik11" || $Ident == "Dauer11" || $Ident == "Prio11") {
+        SetValue($this->GetIDForIdent($Ident), $Value);
+        $this->Evaluate();
+        return;
+    }
+
+    // ResetAll-Button im Konfigformular
+    if ($Ident == "ResetAll") {
+        $this->ResetAllPrioStarts();
+        $this->Evaluate();
+        return;
+    }
+
+    // Evaluate-Timer (wird alle Sekunde ausgeführt)
+    if ($Ident == "Evaluate") {
+        $this->Evaluate();
+        return;
+    }
+
+    // Fallback: Wert einfach setzen
+    SetValue($this->GetIDForIdent($Ident), $Value);
+}
+
+
     public function Evaluate()
     {
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
