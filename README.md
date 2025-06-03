@@ -1,71 +1,98 @@
+IPSymcon-Bewaesserung
+Bewässerung Multi-Zone
+Ein modernes, flexibles IP-Symcon-Modul zur Steuerung von bis zu 10 Bewässerungssträngen (z. B. für Garten oder Landwirtschaft) – mit direkter KNX-Anbindung, Einzel- und Automatikbetrieb, Prioritäten, Laufzeiten, Pumpensteuerung und übersichtlicher Statusanzeige im WebFront.
 
-# IPSymcon-Bewaesserung
+✨ Features
+Bis zu 10 separat steuerbare Zonen/Stränge
 
-**Bewässerung Multi-Zone**  
-Ein IP-Symcon-Modul zur Steuerung von bis zu 10 Bewässerungssträngen (z.B. für Garten oder Landwirtschaft) – mit direkter KNX-Anbindung, Einzel- und Automatikbetrieb, Prioritäten, Laufzeiten und übersichtlicher Statusanzeige im WebFront.
+Jede Zone frei benennbar (Konfig-Formular)
 
----
+Manueller Modus: Sofortiges EIN/AUS je Zone
 
-## ✨ Features
+Automatik-Modus:
 
-- Bis zu **10 separat steuerbare Zonen/Stränge**
-- **Manueller Modus** (Schalten EIN/AUS je Zone)
-- **Automatik-Modus** mit:
-  - Ablauf nach **Priorität** und **Dauer**
-  - Nacheinander-Schaltung (immer nur ein Strang aktiv)
-  - Übersichtliche Restlaufzeit- und Startzeitanzeige
-- **Statusanzeige** je Zone:  
-  Zeigt an, wann die nächste Bewässerung startet oder wie lange sie noch läuft
-- **Kompatibel mit KNX** (direktes Schalten per verlinkter Bool-Variable)
-- **Timer-gesteuert** (keine zyklischen Ereignisse notwendig)
-- **WebFront-tauglich**
+Ablauf nach einstellbarer Priorität und Dauer
 
----
+Nacheinander-Schaltung (immer nur eine Prio-Gruppe läuft gleichzeitig)
 
-## 🛠️ Installation
+Pumpensteuerung integriert:
 
-1. Klone dieses Repository in deinen IP-Symcon-Module-Ordner:
+Wird im Automatikbetrieb automatisch mit eingeschaltet
 
-   ```sh
-   git clone https://github.com/AndreasWalder/IPSymcon-Bewaesserung.git
-   ```
+Kann manuell zugeschaltet werden
 
-2. Starte den Symcon-Dienst neu.
-3. Instanz anlegen:  
-   *Objektbaum → Instanz hinzufügen → „Bewässerung Multi-Zone“*
-4. KNX-Variablen zuordnen, Dauer und Priorität pro Zone einstellen.
+Status- und Infoanzeige wie die Zonen
 
----
+Statusanzeigen je Zone und Pumpe:
 
-## ⚙️ Konfiguration
+Zeigt an, wann die nächste Bewässerung startet oder wie lange sie noch läuft
 
-Jede Zone (Strang) hat folgende Variablen:
-- **Manuell** (`Bool`): Sofortiges EIN/AUS (übersteuert Automatik)
-- **Automatik** (`Bool`): Automatik-Ablauf aktivieren/deaktivieren
-- **Dauer** (`Int`): Bewässerungszeit in Sekunden
-- **Priorität** (`Int`): Reihenfolge, in der die Stränge automatisch bewässert werden
-- **Status** (`String`): „Läuft noch…“ oder „Start in…“
+Fehler- und Warnmeldungen bei Problemen mit Aktoren
 
-> Die zu schaltende KNX-Bool-Variable wird in der Instanzkonfiguration zugeordnet.
+Kompatibel mit KNX (direktes Schalten per verlinkter Bool-Variable)
 
----
+Timer-gesteuert (keine zyklischen Ereignisse notwendig)
 
-## 💡 Beispiel-Anwendungsfall
+WebFront-tauglich – alle Variablen optimal beschriftet
 
-- Strang 1: Hecke Nordseite – Priorität 1, Dauer 1200 s
-- Strang 2: Blumenbeet – Priorität 2, Dauer 900 s  
-…usw.
-- Alle 10 Stränge können unabhängig manuell oder automatisch bewässert werden.
+Dynamische Instanzkonfiguration – alles komfortabel über das Formular konfigurierbar
 
----
+🛠️ Installation
+Repository klonen in deinen IP-Symcon-Module-Ordner (z. B. /var/lib/symcon/modules/):
 
-## 🧑‍💻 Autor & Lizenz
+bash
+Kopieren
+Bearbeiten
+git clone https://github.com/AndreasWalder/IPSymcon-Bewaesserung.git
+Symcon-Dienst neu starten.
 
-- Erstellt von Andreas Walder
-- MIT-Lizenz
+Instanz anlegen:
+Objektbaum → Instanz hinzufügen → „Bewässerung Multi-Zone“
 
----
+Zonenanzahl, Namen, Aktoren und Pumpe in der Instanzkonfiguration festlegen.
 
-## 🛠️ Weiterentwicklung
+⚙️ Konfiguration
+Jede Zone (Strang) bietet folgende Einstellungen und Variablen:
 
-Gerne mit Forks, Issues & Pull Requests!
+Name (Text): Frei wählbar (z. B. „Rasen Ost“)
+
+Manuell (Bool): Sofortiges EIN/AUS (übersteuert Automatik)
+
+Automatik (Bool): Automatik-Ablauf aktivieren/deaktivieren
+
+Dauer (Int): Bewässerungszeit in Sekunden
+
+Priorität (Int): Reihenfolge der Bewässerung
+
+Status (Bool): Ein/Aus-Status (schaltbar)
+
+Info (String): Zeigt Restlaufzeit, Fehler oder Startzeit an
+
+Pumpe:
+
+Pumpe Manuell (Bool): Manuelle Zuschaltung der Pumpe
+
+Pumpe Status (Bool): EIN/AUS-Status der Pumpe (automatisch und manuell)
+
+Pumpe Info (String): Statusmeldung oder Fehler
+
+Die zu schaltenden KNX-Bool-Variablen werden in der Instanzkonfiguration zugeordnet.
+
+💡 Beispiel-Anwendungsfall
+Zone 1: „Hecke Nordseite“ – Priorität 1, Dauer 1200 s
+
+Zone 2: „Blumenbeet“ – Priorität 2, Dauer 900 s
+
+Zone 3: „Rasen Ost“ – Priorität 3, Dauer 1800 s
+
+Pumpe: Wird automatisch immer dann geschaltet, wenn eine Zone läuft, oder kann manuell zugeschaltet werden.
+
+Alle Zonen können unabhängig manuell oder automatisch bewässert werden.
+
+🧑‍💻 Autor & Lizenz
+Erstellt von Andreas Walder
+MIT-Lizenz (LICENSE liegt bei)
+
+🛠️ Weiterentwicklung
+Mit Forks, Issues & Pull Requests sehr gerne gesehen!
+Fehler, Ideen und Verbesserungen bitte als GitHub Issue oder PR einreichen.
