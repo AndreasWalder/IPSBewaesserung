@@ -29,6 +29,17 @@ trait BewaesserungConfig
             ];
         }
 
+        // Nebenstelle (Zone 11)
+        $elements[] = [
+            "type" => "Label",
+            "caption" => "Nebenstelle (immer verfügbar):"
+        ];
+        $elements[] = [
+            "type" => "SelectObject",
+            "name" => "AktorID11",
+            "caption" => "KNX Aktor-Variable Nebenstelle"
+        ];
+
         $elements[] = [
             "type" => "SelectObject",
             "name" => "PumpeAktorID",
