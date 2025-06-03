@@ -21,7 +21,11 @@ class IPSBewaesserung extends IPSModule
         $this->RegisterPropertyInteger("ZoneCount", 1);
         for ($i = 1; $i <= 10; $i++) {
             $this->RegisterPropertyInteger("AktorID$i", 0);
+            $this->RegisterPropertyString("ZoneName$i", "Zone $i");
         }
+
+        // Pumpe als eigene Property
+        $this->RegisterPropertyInteger("PumpeAktorID", 0);
 
         $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
         $this->EnableAction("GesamtAutomatik");
@@ -32,6 +36,13 @@ class IPSBewaesserung extends IPSModule
         }
 
         $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+
+        // Pumpe: Variablen
+        $this->RegisterVariableBoolean("PumpeManuell", "Pumpe Manuell", "~Switch", 950);
+        $this->EnableAction("PumpeManuell");
+        $this->RegisterVariableBoolean("PumpeStatus", "Pumpe Status", "~Switch", 951);
+        $this->RegisterVariableString("PumpeInfo", "Pumpe Info", "", 952);
+
     }
 
     public function ApplyChanges()
@@ -42,20 +53,20 @@ class IPSBewaesserung extends IPSModule
         if ($zoneCount > 10) $zoneCount = 10;
 
         for ($i = 1; $i <= $zoneCount; $i++) {
-            $this->RegisterVariableBoolean("Manuell$i", "Manuell Zone $i", "~Switch", 1000 + $i * 10);
+            $this->RegisterVariableBoolean("Manuell$i", "Manuell " . $this->ReadPropertyString("ZoneName$i"), "~Switch", 1000 + $i * 10);
             $this->EnableAction("Manuell$i");
 
-            $this->RegisterVariableBoolean("Automatik$i", "Automatik Zone $i", "~Switch", 1001 + $i * 10);
+            $this->RegisterVariableBoolean("Automatik$i", "Automatik " . $this->ReadPropertyString("ZoneName$i"), "~Switch", 1001 + $i * 10);
             $this->EnableAction("Automatik$i");
 
-            $this->RegisterVariableInteger("Dauer$i", "Dauer Zone $i", "IPSBW.Duration", 1002 + $i * 10);
+            $this->RegisterVariableInteger("Dauer$i", "Dauer " . $this->ReadPropertyString("ZoneName$i"), "IPSBW.Duration", 1002 + $i * 10);
             $this->EnableAction("Dauer$i");
 
-            $this->RegisterVariableInteger("Prio$i", "Priorität Zone $i", "IPSBW.Prioritaet", 1003 + $i * 10);
+            $this->RegisterVariableInteger("Prio$i", "Priorität " . $this->ReadPropertyString("ZoneName$i"), "IPSBW.Prioritaet", 1003 + $i * 10);
             $this->EnableAction("Prio$i");
 
-            $this->RegisterVariableBoolean("Status$i", "Status Zone $i (EIN/AUS)", "~Switch", 1004 + $i * 10);
-            $this->RegisterVariableString("Info$i", "Info Zone $i", "", 1005 + $i * 10);
+            $this->RegisterVariableBoolean("Status$i", "Status " . $this->ReadPropertyString("ZoneName$i") . " (EIN/AUS)", "~Switch", 1004 + $i * 10);
+            $this->RegisterVariableString("Info$i", "Info " . $this->ReadPropertyString("ZoneName$i"), "", 1005 + $i * 10);
 
             // Warnung bei fehlender AktorID
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -88,6 +99,10 @@ class IPSBewaesserung extends IPSModule
             SetValue($this->GetIDForIdent($Ident), $Value);
             return;
         }
+        if ($Ident == "PumpeManuell") {
+            SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
+            return;
+        }
         SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
@@ -100,6 +115,32 @@ class IPSBewaesserung extends IPSModule
 
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
 
+        $pumpeAktorID = $this->ReadPropertyInteger("PumpeAktorID");
+        $pumpeManuell = GetValue($this->GetIDForIdent("PumpeManuell"));
+        $pumpeStatusID = $this->GetIDForIdent("PumpeStatus");
+        $pumpeInfoID = $this->GetIDForIdent("PumpeInfo");
+
+        // ----------- Pumpe-Logik -----------
+        $pumpeSollAn = false;
+
+        if ($gesamtAuto) {
+            // Automatik hat Vorrang
+            $pumpeSollAn = true;
+        } else {
+            // Manuell möglich
+            if ($pumpeManuell) {
+                $pumpeSollAn = true;
+            }
+        }
+
+        if ($pumpeAktorID > 0 && @IPS_ObjectExists($pumpeAktorID)) {
+            $this->SafeRequestAction($pumpeAktorID, $pumpeSollAn, $pumpeStatusID, $pumpeInfoID, $pumpeSollAn ? "Pumpe EIN" : "Pumpe AUS");
+        } else {
+            SetValueBoolean($pumpeStatusID, false);
+            SetValueString($pumpeInfoID, "Keine Pumpe-AktorID");
+        }
+
+        // ----------- Zonen-Logik -----------
         if ($gesamtAuto) {
             // Automatik hat Vorrang, Manuell ist gesperrt
             for ($i = 1; $i <= $zoneCount; $i++) {
@@ -232,6 +273,17 @@ class IPSBewaesserung extends IPSModule
                 SetValueString($infoID, "Keine AktorID");
             }
         }
+
+        // Pumpe manuell nachziehen (wenn Automatik aus)
+        if (!$gesamtAuto) {
+            if ($pumpeAktorID > 0 && @IPS_ObjectExists($pumpeAktorID)) {
+                $this->SafeRequestAction($pumpeAktorID, $pumpeManuell, $pumpeStatusID, $pumpeInfoID, $pumpeManuell ? "Pumpe EIN" : "Pumpe AUS");
+            } else {
+                SetValueBoolean($pumpeStatusID, false);
+                SetValueString($pumpeInfoID, "Keine Pumpe-AktorID");
+            }
+        }
+
         // KEINE Automatik-Logik mehr, wenn Automatik aus ist!
     }
 
@@ -299,6 +351,13 @@ class IPSBewaesserung extends IPSModule
             "maximum" => 10
         ];
 
+        // Textfeld für Zonen-Namen (hier nur Zone 1, bei Bedarf für alle Zonen erweitern)
+        $elements[] = [
+            "type" => "ValidationTextBox",
+            "name" => "ZoneName1",
+            "caption" => "Name der Zone 1"
+        ];
+
         for ($i = 1; $i <= $zoneCount; $i++) {
             $elements[] = [
                 "type" => "SelectObject",
@@ -307,7 +366,13 @@ class IPSBewaesserung extends IPSModule
             ];
         }
 
-        // Zusatz-Button: Alle Prio zurücksetzen (mit richtiger Instanz-ID!)
+        // Auswahl für Pumpenaktor
+        $elements[] = [
+            "type" => "SelectObject",
+            "name" => "PumpeAktorID",
+            "caption" => "Pumpen-Aktor-Variable"
+        ];
+
         $actions = [
             [
                 "type"    => "Button",
