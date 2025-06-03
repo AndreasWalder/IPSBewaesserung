@@ -1,3 +1,4 @@
+<?php
 public function GetConfigurationForm()
 {
     $zoneCount = $this->ReadPropertyInteger("ZoneCount");
@@ -72,3 +73,4 @@ public function GetConfigurationForm()
 
     return json_encode($form);
 }
+?>
