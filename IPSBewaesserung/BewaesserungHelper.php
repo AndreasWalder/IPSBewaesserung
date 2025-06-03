@@ -1,6 +1,7 @@
 <?php
 trait BewaesserungHelper
 {
+    // Sicheres Schalten eines Aktors inkl. Status und Info-Update
     protected function SafeRequestAction($aktorID, $value, $statusID, $infoID, $okText = "")
     {
         if ($aktorID > 0 && @IPS_ObjectExists($aktorID)) {
@@ -24,6 +25,7 @@ trait BewaesserungHelper
         }
     }
 
+    // Sicheres Setzen eines Bool-Werts + Info (wird aktuell nicht genutzt, aber für künftige Erweiterungen praktisch)
     protected function SafeSetValueBoolean($statusID, $value, $infoID, $text = "")
     {
         SetValueBoolean($statusID, $value);
@@ -32,6 +34,7 @@ trait BewaesserungHelper
         }
     }
 
+    // Setzt ALLE Prio-Startzeiten auf "offen" (0)
     protected function ResetAllPrioStarts()
     {
         for ($prio = 0; $prio <= 99; $prio++) {
@@ -39,6 +42,7 @@ trait BewaesserungHelper
         }
     }
 
+    // Liefert die längste Laufzeit einer Prio-Gruppe (für Automatik-Sequenz)
     protected function getPrioDauer($zoneArray)
     {
         $max = 0;
