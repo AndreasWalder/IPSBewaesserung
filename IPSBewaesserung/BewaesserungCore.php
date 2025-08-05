@@ -125,7 +125,9 @@ class BewaesserungCore extends IPSModule
         IPS_SetName($this->GetIDForIdent("PumpeStatus"), "Pumpe Status");
         IPS_SetName($this->GetIDForIdent("PumpeInfo"), "Pumpe Info");
 
-        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        $this->SetTimerInterval("EvaluateTimer", 1000); // Nur Intervall setzen!
+        IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde auf Intervall 1000 gesetzt");
+        
         $this->ResetAllPrioStarts();   
     }
 
@@ -177,8 +179,8 @@ class BewaesserungCore extends IPSModule
 
         if ($Ident == "RestartTimer") {
             // Timer wieder auf 1 Sekunde setzen (neu starten)
-            $this->SetTimerInterval("EvaluateTimer", 1000);
-            IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde gestoppt und neu gestartet");
+            $this->SetTimerInterval("EvaluateTimer", 1000); // Nur Intervall setzen!
+            IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde auf Intervall 1000 gesetzt");
             return;
         }
 
