@@ -225,7 +225,7 @@ class BewaesserungCore extends IPSModule
 
     public function Evaluate()
     {
-        IPS_LogMessage("IPSBewaesserung", "Evaluate() wurde aufgerufen.");
+        //IPS_LogMessage("IPSBewaesserung", "Evaluate() wurde aufgerufen.");
         // Hier kann später deine Ablaufsteuerung ergänzt werden
     }
 }
