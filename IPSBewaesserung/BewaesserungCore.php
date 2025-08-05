@@ -352,38 +352,26 @@ class BewaesserungCore extends IPSModule
             SetValueString($infoID, "Keine AktorID");
         }
     }
-    
     private function ManualStepAdvance()
     {
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        $found = false;
         for ($i = 1; $i <= $zoneCount; $i++) {
             $statusID = $this->GetIDForIdent("Status$i");
-            $dauerID  = $this->GetIDForIdent("Dauer$i"); // <-- Das ist die Zeit-Variable
+            $dauerID  = $this->GetIDForIdent("Dauer$i");
             if (!@IPS_VariableExists($statusID)) {
                 continue;
             }
             $status = GetValueBoolean($statusID);
     
-            if ($status && !$found) {
-                // Restlaufzeit auf 0 setzen!
+            if ($status) {
+                // Nur Restlaufzeit auf 0 setzen, keine Automatik abschalten!
                 if (@IPS_VariableExists($dauerID)) {
                     SetValueInteger($dauerID, 0);
                     IPS_LogMessage("BWZ", "Restlaufzeit Zone $i auf 0 gesetzt (ID $dauerID)");
                 }
-                $aktorID = $this->ReadPropertyInteger("AktorID$i");
-                if ($aktorID > 0) {
-                    RequestAction($aktorID, false);
-                }
-                SetValueBoolean($statusID, false);
-                $found = true;
-            } elseif ($found && !$status) {
-                $aktorID = $this->ReadPropertyInteger("AktorID$i");
-                if ($aktorID > 0) {
-                    RequestAction($aktorID, true);
-                }
-                SetValueBoolean($statusID, true);
-                break;
+                // NICHT: SetValueBoolean($this->GetIDForIdent("Automatik$i"), false);
+                // NICHT: SetValueBoolean($this->GetIDForIdent("GesamtAutomatik"), false);
+                break; // Nach erstem Treffer abbrechen!
             }
         }
     }
