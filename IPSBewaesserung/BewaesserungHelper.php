@@ -51,39 +51,5 @@ trait BewaesserungHelper
         }
         return $max;
     }
-
-    // Manueller Schrittwechsel (kann auch in der Hauptklasse stehen)
-    protected function ManualStepAdvance()
-    {
-        $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        $found = false;
-
-        for ($i = 1; $i <= $zoneCount; $i++) {
-            $statusID = $this->GetIDForIdent("Status$i");
-            if (!@IPS_VariableExists($statusID)) {
-                continue;
-            }
-
-            $status = GetValueBoolean($statusID);
-
-            if ($status && !$found) {
-                // Aktiven Schritt beenden
-                $aktorID = $this->ReadPropertyInteger("AktorID$i");
-                if ($aktorID > 0) {
-                    RequestAction($aktorID, false);
-                }
-                SetValueBoolean($statusID, false);
-                $found = true;
-            } elseif ($found && !$status) {
-                // Nächsten Schritt aktivieren
-                $aktorID = $this->ReadPropertyInteger("AktorID$i");
-                if ($aktorID > 0) {
-                    RequestAction($aktorID, true);
-                }
-                SetValueBoolean($statusID, true);
-                break;
-            }
-        }
-    }
 }
 ?>
