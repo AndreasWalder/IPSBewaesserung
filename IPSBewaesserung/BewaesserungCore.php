@@ -1,8 +1,6 @@
 <?php
 class BewaesserungCore extends IPSModule
 {
-    use BewaesserungHelper; // Wenn du den Helper als Trait verwendest
-
     public function Create()
     {
         parent::Create();
