@@ -169,15 +169,18 @@ class BewaesserungCore extends IPSModule
             return;
         }
     
-    if ($Ident == "ResetAll") {
+        if ($Ident == "ResetAll") {
             $this->ResetAllPrioStarts();
             $this->Evaluate();
             return;
         }
 
         if ($Ident == "RestartTimer") {
-            $this->SetTimerInterval("EvaluateTimer", 1000);
-            IPS_LogMessage("BWZ-Timer", "Timer wurde manuell neu gestartet");
+            $this->SetTimerInterval("EvaluateTimer", 0);      // Stopp
+            IPS_LogMessage("BWZ-Timer", "Timer wurde gestoppt auf 0");
+            IPS_Sleep(200);                                   // Ganz kurzer Wait
+            $this->SetTimerInterval("EvaluateTimer", 1000);   // Neustart
+            IPS_LogMessage("BWZ-Timer", "Timer wurde manuell neu gestartet (Reset)");
             return;
         }
 
