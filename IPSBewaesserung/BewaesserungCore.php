@@ -165,6 +165,14 @@ class BewaesserungCore extends IPSModule
             return;
         }
 
+        if ($Ident == "ManualNextStep") {
+        if ($Value) {
+            $this->ManualStepAdvance();
+            $this->SetValue("ManualNextStep", false);
+            }
+            return;
+        }  
+
         if ($Ident == "ResetAll") {
             $this->ResetAllPrioStarts();
             $this->Evaluate();
