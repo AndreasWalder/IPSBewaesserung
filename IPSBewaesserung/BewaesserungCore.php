@@ -31,8 +31,6 @@ class BewaesserungCore extends IPSModule
         $this->EnableAction("Manuell11");
         $this->RegisterVariableBoolean("Automatik11", "Automatik $nebenName", "~Switch", 1111);
         $this->EnableAction("Automatik11");
-        $this->RegisterVariableInteger("Dauer11", "Dauer $nebenName", "IPSBW.Duration", 1112);
-        $this->EnableAction("Dauer11");
         $this->RegisterVariableInteger("Prio11", "Priorität $nebenName", "IPSBW.Prioritaet", 1113);
         $this->EnableAction("Prio11");
         $this->RegisterVariableBoolean("Status11", "Status $nebenName (EIN/AUS)", "~Switch", 1114);
@@ -55,17 +53,22 @@ class BewaesserungCore extends IPSModule
         //}
 
         // Profile
-        if (!IPS_VariableProfileExists("IPSBW.Duration")) {
-            IPS_CreateVariableProfile("IPSBW.Duration", 1);
-            IPS_SetVariableProfileText("IPSBW.Duration", "", " s");
-            IPS_SetVariableProfileDigits("IPSBW.Duration", 0);
-            IPS_SetVariableProfileValues("IPSBW.Duration", 1, 3600, 1);
+        // Profil für Minuten (VariableProfile 1 = Integer)
+        if (!IPS_VariableProfileExists("IPSBW.DurationMin")) {
+            IPS_CreateVariableProfile("IPSBW.DurationMin", 1);
+            IPS_SetVariableProfileText("IPSBW.DurationMin", "", " min");
+            IPS_SetVariableProfileDigits("IPSBW.DurationMin", 0);
+            IPS_SetVariableProfileValues("IPSBW.DurationMin", 1, 240, 1); // 1 bis 240 Minuten
         }
-        if (!IPS_VariableProfileExists("IPSBW.Prioritaet")) {
-            IPS_CreateVariableProfile("IPSBW.Prioritaet", 1);
-            IPS_SetVariableProfileText("IPSBW.Prioritaet", "", "");
-            IPS_SetVariableProfileValues("IPSBW.Prioritaet", 1, 20, 1);
+        for ($i = 1; $i <= 10; $i++) {
+            $this->RegisterPropertyInteger("Dauer$i", 5); // Default: 5 Minuten
+            // ...
+            $this->RegisterVariableInteger("Dauer$i", "Dauer $zoneName", "IPSBW.DurationMin", 1002 + $i * 10);
+            $this->EnableAction("Dauer$i");
         }
+        $this->RegisterPropertyInteger("Dauer11", 5);
+        $this->RegisterVariableInteger("Dauer11", "Dauer Nebenstelle", "IPSBW.DurationMin", 1112);
+        $this->EnableAction("Dauer11");
     }
 
     public function ApplyChanges()
