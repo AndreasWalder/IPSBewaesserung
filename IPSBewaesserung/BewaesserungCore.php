@@ -438,7 +438,7 @@ class BewaesserungCore extends IPSModule
                 if ($startPrio !== -1) {
                     $this->WriteAttributeInteger($startAttr, time());
                     IPS_LogMessage("BWZ", "StartPrio$nextPrio auf jetzt gesetzt durch manuellen Schritt.");
-                    $this->WriteAttributeInteger("ManualStepNextPrio", $nextPrio);
+                    //$this->WriteAttributeInteger("ManualStepNextPrio", $nextPrio);
                     break;
                 }
             }
