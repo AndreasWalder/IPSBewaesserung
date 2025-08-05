@@ -133,9 +133,6 @@ class BewaesserungCore extends IPSModule
         IPS_SetName($this->GetIDForIdent("PumpeManuell"), "Pumpe Manuell");
         IPS_SetName($this->GetIDForIdent("PumpeStatus"), "Pumpe Status");
         IPS_SetName($this->GetIDForIdent("PumpeInfo"), "Pumpe Info");
-
-        $this->SetTimerInterval("EvaluateTimer", 1000); // Nur Intervall setzen!
-        IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde auf Intervall 1000 gesetzt");
         
         $this->ResetAllPrioStarts();   
     }
