@@ -395,11 +395,12 @@ class BewaesserungCore extends IPSModule
     private function ManualStepAdvance()
     {
         $this->WriteAttributeBoolean("ManualStepActive", true);
-
+    
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        // Finde die gerade laufende Prio-Gruppe und setze deren Restzeit auf 0
-        for ($prio = 1; $prio <= 20; $prio++) {
-            // Finde, ob eine Zone dieser Prio aktiv ist
+        $foundPrio = null;
+    
+        // 1. Aktive Prio finden und Restzeit auf 0
+        for ($prio = 1; $prio <= 99; $prio++) {
             $found = false;
             for ($i = 1; $i <= $zoneCount; $i++) {
                 $prioVar = $this->GetIDForIdent("Prio$i");
@@ -413,11 +414,25 @@ class BewaesserungCore extends IPSModule
                             SetValueInteger($dauerID, 0);
                             IPS_LogMessage("BWZ", "Restlaufzeit Zone $i (Prio $prio) auf 0 gesetzt (ID $dauerID)");
                             $found = true;
+                            $foundPrio = $prio;
                         }
                     }
                 }
             }
-            if ($found) break; // Nur die erste aktive Prio-Gruppe!
+            if ($found) break;
+        }
+    
+        // 2. Nächste noch offene Prio auf jetzt setzen:
+        if ($foundPrio !== null) {
+            for ($nextPrio = $foundPrio + 1; $nextPrio <= 99; $nextPrio++) {
+                $startAttr = "StartPrio" . $nextPrio;
+                $startPrio = $this->ReadAttributeInteger($startAttr);
+                if ($startPrio !== -1) {
+                    $this->WriteAttributeInteger($startAttr, time());
+                    IPS_LogMessage("BWZ", "StartPrio$nextPrio auf jetzt gesetzt durch manuellen Schritt.");
+                    break;
+                }
+            }
         }
     }
 }
