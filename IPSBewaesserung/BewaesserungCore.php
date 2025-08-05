@@ -46,7 +46,13 @@ class BewaesserungCore extends IPSModule
         // NEU: Flag für manuellen Schritt registrieren
         $this->RegisterAttributeBoolean("ManualStepActive", false);
 
-        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        if (!@IPS_GetObjectIDByIdent("EvaluateTimer", $this->InstanceID)) {
+            // Timer existiert NICHT -> anlegen
+            $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        } else {
+            // Timer existiert -> nur Intervall setzen
+            $this->SetTimerInterval("EvaluateTimer", 1000);
+        }
 
         // Profile
         if (!IPS_VariableProfileExists("IPSBW.Duration")) {
