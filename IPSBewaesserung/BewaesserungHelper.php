@@ -51,5 +51,52 @@ trait BewaesserungHelper
         }
         return $max;
     }
+
+    public function RequestAction($Ident, $Value)
+    {
+        switch ($Ident) {
+            case "ManualNextStep":
+                if ($Value) {
+                    $this->ManualStepAdvance();
+                    $this->SetValue("ManualNextStep", false);
+                }
+                break;
+    
+            // Weitere Actions hier behandeln ...
+        }
+    }
+
+    private function ManualStepAdvance()
+    {
+        $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+        $found = false;
+    
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            $statusID = $this->GetIDForIdent("Status$i");
+            if (!@IPS_VariableExists($statusID)) {
+                continue;
+            }
+    
+            $status = GetValueBoolean($statusID);
+    
+            if ($status && !$found) {
+                // Aktiven Schritt beenden
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                if ($aktorID > 0) {
+                    RequestAction($aktorID, false);
+                }
+                SetValueBoolean($statusID, false);
+                $found = true;
+            } elseif ($found && !$status) {
+                // Nächsten Schritt aktivieren
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                if ($aktorID > 0) {
+                    RequestAction($aktorID, true);
+                }
+                SetValueBoolean($statusID, true);
+                break;
+            }
+        }
+    }
 }
 ?>
