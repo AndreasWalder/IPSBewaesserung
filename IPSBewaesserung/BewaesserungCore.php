@@ -393,30 +393,37 @@ class BewaesserungCore extends IPSModule
 
     private function ManualStepAdvance()
     {
-        $this->WriteAttributeBoolean("ManualStepActive", true);
-
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
-        // Finde die gerade laufende Prio-Gruppe und setze deren Restzeit auf 0
-        for ($prio = 1; $prio <= 20; $prio++) {
-            // Finde, ob eine Zone dieser Prio aktiv ist
-            $found = false;
-            for ($i = 1; $i <= $zoneCount; $i++) {
-                $prioVar = $this->GetIDForIdent("Prio$i");
-                $zonePrio = @GetValue($prioVar);
-                $statusID = $this->GetIDForIdent("Status$i");
-                $dauerID  = $this->GetIDForIdent("Dauer$i");
-                if (@IPS_VariableExists($statusID) && $zonePrio == $prio) {
-                    $status = GetValueBoolean($statusID);
-                    if ($status) {
-                        if (@IPS_VariableExists($dauerID)) {
-                            SetValueInteger($dauerID, 0);
-                            IPS_LogMessage("BWZ", "Restlaufzeit Zone $i (Prio $prio) auf 0 gesetzt (ID $dauerID)");
-                            $found = true;
-                        }
-                    }
+        $justFinishedPrio = null;
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            $statusID = $this->GetIDForIdent("Status$i");
+            $dauerID  = $this->GetIDForIdent("Dauer$i");
+            $prio     = GetValue($this->GetIDForIdent("Prio$i"));
+            if (!@IPS_VariableExists($statusID)) continue;
+            $status = GetValueBoolean($statusID);
+    
+            if ($status) {
+                // Restlaufzeit auf 0 setzen!
+                if (@IPS_VariableExists($dauerID)) {
+                    SetValueInteger($dauerID, 0);
+                    $justFinishedPrio = $prio;
+                    IPS_LogMessage("BWZ", "Restlaufzeit Zone $i auf 0 gesetzt (ID $dauerID), Prio $prio");
+                }
+                break;
+            }
+        }
+    
+        // Startzeit der nächsten noch offenen Prio auf jetzt setzen
+        if ($justFinishedPrio !== null) {
+            for ($p = $justFinishedPrio + 1; $p <= 99; $p++) {
+                $startAttr = "StartPrio" . $p;
+                $attrValue = $this->ReadAttributeInteger($startAttr);
+                if ($attrValue > 0) {
+                    $this->WriteAttributeInteger($startAttr, time());
+                    IPS_LogMessage("BWZ", "Manuell: Startzeit Prio $p auf jetzt gesetzt!");
+                    break;
                 }
             }
-            if ($found) break; // Nur die erste aktive Prio-Gruppe!
         }
     }
 }
