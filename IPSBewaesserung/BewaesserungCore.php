@@ -43,6 +43,9 @@ class BewaesserungCore extends IPSModule
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
 
+        // NEU: Flag für manuellen Schritt registrieren
+        $this->RegisterAttributeBoolean("ManualStepActive", false);
+
         $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
 
         // Profile
@@ -162,7 +165,6 @@ class BewaesserungCore extends IPSModule
             return;
         }
 
-        
         if ($Ident == "ManualNextStep") {
             if ($Value) {
                 $this->ManualStepAdvance();
@@ -178,7 +180,6 @@ class BewaesserungCore extends IPSModule
         }
 
         if ($Ident == "RestartTimer") {
-            // Timer wieder auf 1 Sekunde setzen (neu starten)
             $this->SetTimerInterval("EvaluateTimer", 1000); // Nur Intervall setzen!
             IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde auf Intervall 1000 gesetzt");
             return;
@@ -296,7 +297,7 @@ class BewaesserungCore extends IPSModule
                 $globalOffset += $maxDauer;
             }
 
-            // Prüfen, ob noch Automatik läuft – sonst Automatik abschalten
+            // Prüfen, ob noch Automatik läuft – sonst Automatik abschalten ODER nach manuellem Schritt nicht!
             $irgendetwasAktiv = false;
             foreach ($prioMap as $prio => $zoneArray) {
                 $startAttr = "StartPrio" . $prio;
@@ -311,10 +312,16 @@ class BewaesserungCore extends IPSModule
                 }
             }
 
+            // NEU: Automatik nicht abschalten, falls manueller Schritt!
             if (!$irgendetwasAktiv) {
-                SetValue($this->GetIDForIdent("GesamtAutomatik"), false);
+                if ($this->ReadAttributeBoolean("ManualStepActive")) {
+                    // Automatik bleibt aktiv, Flag zurücksetzen!
+                    $this->WriteAttributeBoolean("ManualStepActive", false);
+                    IPS_LogMessage("BWZ", "Automatik bleibt nach manuellem Schritt aktiv!");
+                } else {
+                    SetValue($this->GetIDForIdent("GesamtAutomatik"), false);
+                }
             }
-
             return;
         }
 
@@ -352,8 +359,12 @@ class BewaesserungCore extends IPSModule
             SetValueString($infoID, "Keine AktorID");
         }
     }
+
     private function ManualStepAdvance()
     {
+        // FLAG setzen, dass gerade ein manueller Schritt aktiv war!
+        $this->WriteAttributeBoolean("ManualStepActive", true);
+
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         for ($i = 1; $i <= $zoneCount; $i++) {
             $statusID = $this->GetIDForIdent("Status$i");
@@ -362,15 +373,13 @@ class BewaesserungCore extends IPSModule
                 continue;
             }
             $status = GetValueBoolean($statusID);
-    
+
             if ($status) {
                 // Nur Restlaufzeit auf 0 setzen, keine Automatik abschalten!
                 if (@IPS_VariableExists($dauerID)) {
                     SetValueInteger($dauerID, 0);
                     IPS_LogMessage("BWZ", "Restlaufzeit Zone $i auf 0 gesetzt (ID $dauerID)");
                 }
-                // NICHT: SetValueBoolean($this->GetIDForIdent("Automatik$i"), false);
-                // NICHT: SetValueBoolean($this->GetIDForIdent("GesamtAutomatik"), false);
                 break; // Nach erstem Treffer abbrechen!
             }
         }
