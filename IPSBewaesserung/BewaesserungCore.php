@@ -180,11 +180,10 @@ class BewaesserungCore extends IPSModule
 
         if ($gesamtAuto) {
             $prioMap = [];
-            // Normale Zonen + Nebenstelle einbeziehen
             for ($i = 1; $i <= $zoneCount + 1; $i++) {
                 $auto = GetValue($this->GetIDForIdent("Automatik$i"));
                 $prio = GetValue($this->GetIDForIdent("Prio$i"));
-                $dauer = GetValue($this->GetIDForIdent("Dauer$i")) * 60; // Minuten -> Sekunden
+                $dauer = GetValue($this->GetIDForIdent("Dauer$i")) * 60;
                 $aktorID = $this->ReadPropertyInteger("AktorID$i");
                 $statusID = $this->GetIDForIdent("Status$i");
                 $infoID = $this->GetIDForIdent("Info$i");
@@ -209,7 +208,10 @@ class BewaesserungCore extends IPSModule
             foreach ($prioMap as $prio => $zoneArray) {
                 $startAttr = "StartPrio" . $prio;
                 $prioDauer = $this->getPrioDauer($zoneArray);
-                $startPrio = $this->ReadAttributeInteger($startAttr);
+                $startPrio = @$this->ReadAttributeInteger($startAttr);
+                if ($startPrio === false) {
+                    $startPrio = 0;
+                }
 
                 if ($startPrio === -1) {
                     foreach ($zoneArray as $z) {
@@ -258,7 +260,10 @@ class BewaesserungCore extends IPSModule
             $irgendetwasAktiv = false;
             foreach ($prioMap as $prio => $zoneArray) {
                 $startAttr = "StartPrio" . $prio;
-                $startPrio = $this->ReadAttributeInteger($startAttr);
+                $startPrio = @$this->ReadAttributeInteger($startAttr);
+                if ($startPrio === false) {
+                    $startPrio = 0;
+                }
                 if ($startPrio === -1) continue;
                 foreach ($zoneArray as $z) {
                     $ende = $startPrio + $z['dauer'];
