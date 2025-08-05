@@ -54,6 +54,10 @@ class BewaesserungCore extends IPSModule
         } else {
             $this->SetTimerInterval("EvaluateTimer", 1000);
         }
+
+        for ($prio = 0; $prio <= 99; $prio++) {
+          $this->WriteAttributeInteger("StartPrio" . $prio, 0);
+        }
     }
 
     public function ApplyChanges()
@@ -90,6 +94,10 @@ class BewaesserungCore extends IPSModule
         $this->RegisterVariableString("Info11", "Info $nebenName", "", 1115);
 
         $this->ResetAllPrioStarts();
+
+        for ($prio = 0; $prio <= 99; $prio++) {
+          $this->WriteAttributeInteger("StartPrio" . $prio, 0);
+        }
     }
 
     public function RequestAction($Ident, $Value)
