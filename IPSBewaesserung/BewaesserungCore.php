@@ -138,7 +138,10 @@ class BewaesserungCore extends IPSModule
     {
         if ($Ident == "GesamtAutomatik") {
             if ($Value) {
+                // Alles auf Anfang!
                 $this->ResetAllPrioStarts();
+                $this->ResetAllStatusAndInfos();
+                IPS_LogMessage("BWZ", "GesamtAutomatik: Alle Variablen und Prio auf Anfang gesetzt!");
             }
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->Evaluate();
@@ -358,6 +361,28 @@ class BewaesserungCore extends IPSModule
             SetValueBoolean($statusID, false);
             SetValueString($infoID, "Keine AktorID");
         }
+    }
+
+    private function ResetAllStatusAndInfos()
+    {
+        $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            $statusID = $this->GetIDForIdent("Status$i");
+            if (@IPS_VariableExists($statusID)) {
+                SetValueBoolean($statusID, false);
+            }
+            $infoID = $this->GetIDForIdent("Info$i");
+            if (@IPS_VariableExists($infoID)) {
+                SetValueString($infoID, "");
+            }
+            // Dauer könnte hier auf einen Standardwert gesetzt werden
+            // $dauerID = $this->GetIDForIdent("Dauer$i");
+            // if (@IPS_VariableExists($dauerID)) SetValueInteger($dauerID, 60);
+        }
+        $statusID = $this->GetIDForIdent("Status11");
+        $infoID   = $this->GetIDForIdent("Info11");
+        if (@IPS_VariableExists($statusID)) SetValueBoolean($statusID, false);
+        if (@IPS_VariableExists($infoID))   SetValueString($infoID, "");
     }
 
     private function ManualStepAdvance()
