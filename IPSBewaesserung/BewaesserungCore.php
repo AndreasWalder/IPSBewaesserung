@@ -44,9 +44,12 @@ class BewaesserungCore extends IPSModule
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
 
+       
+
         // NEU: Flag für manuellen Schritt registrieren
         $this->RegisterAttributeBoolean("ManualStepActive", false);
-
+        $this->RegisterAttributeInteger("ManualStepNextPrio", 0);
+       
         // Profile für Minuten (VariableProfile 1 = Integer)
         if (!IPS_VariableProfileExists("IPSBW.DurationMin")) {
             IPS_CreateVariableProfile("IPSBW.DurationMin", 1);
@@ -438,7 +441,7 @@ class BewaesserungCore extends IPSModule
                 if ($startPrio !== -1) {
                     $this->WriteAttributeInteger($startAttr, time());
                     IPS_LogMessage("BWZ", "StartPrio$nextPrio auf jetzt gesetzt durch manuellen Schritt.");
-                    //$this->WriteAttributeInteger("ManualStepNextPrio", $nextPrio);
+                    $this->WriteAttributeInteger("ManualStepNextPrio", $nextPrio);
                     break;
                 }
             }
