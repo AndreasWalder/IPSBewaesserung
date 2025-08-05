@@ -141,10 +141,9 @@ class BewaesserungCore extends IPSModule
     {
         if ($Ident == "GesamtAutomatik") {
             if ($Value) {
-                // Alles auf Anfang!
                 $this->ResetAllPrioStarts();
                 $this->ResetAllStatusAndInfos();
-                IPS_LogMessage("BWZ", "GesamtAutomatik: Alle Variablen und Prio auf Anfang gesetzt!");
+                IPS_LogMessage("BWZ", "GesamtAutomatik: Status, Info und Dauer aus Konfiguration zurückgesetzt!");
             }
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->Evaluate();
@@ -378,14 +377,23 @@ class BewaesserungCore extends IPSModule
             if (@IPS_VariableExists($infoID)) {
                 SetValueString($infoID, "");
             }
-            // Dauer könnte hier auf einen Standardwert gesetzt werden
-            // $dauerID = $this->GetIDForIdent("Dauer$i");
-            // if (@IPS_VariableExists($dauerID)) SetValueInteger($dauerID, 60);
+            // Dauer-Property holen und als Variable setzen
+            $dauerID = $this->GetIDForIdent("Dauer$i");
+            $konfigDauer = $this->ReadPropertyInteger("Dauer$i");
+            if (@IPS_VariableExists($dauerID) && $konfigDauer > 0) {
+                SetValueInteger($dauerID, $konfigDauer);
+            }
         }
+        // Nebenstelle (Zone 11)
         $statusID = $this->GetIDForIdent("Status11");
         $infoID   = $this->GetIDForIdent("Info11");
         if (@IPS_VariableExists($statusID)) SetValueBoolean($statusID, false);
         if (@IPS_VariableExists($infoID))   SetValueString($infoID, "");
+        $dauerID = $this->GetIDForIdent("Dauer11");
+        $konfigDauer = $this->ReadPropertyInteger("Dauer11");
+        if (@IPS_VariableExists($dauerID) && $konfigDauer > 0) {
+            SetValueInteger($dauerID, $konfigDauer);
+        }
     }
 
     private function ManualStepAdvance()
