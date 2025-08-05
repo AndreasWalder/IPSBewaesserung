@@ -36,6 +36,10 @@ class BewaesserungCore extends IPSModule
         $this->RegisterVariableBoolean("Status11", "Status $nebenName (EIN/AUS)", "~Switch", 1114);
         $this->RegisterVariableString("Info11", "Info $nebenName", "", 1115);
 
+        // Neue Variable für manuellen Schrittwechsel
+        $this->RegisterVariableBoolean("ManualNextStep", ">> Manueller Schritt", "~Switch", 8000);
+        $this->EnableAction("ManualNextStep");
+
         // Prio-Startzeiten
         for ($p = 0; $p <= 99; $p++) {
             $this->RegisterAttributeInteger("StartPrio$p", 0);
