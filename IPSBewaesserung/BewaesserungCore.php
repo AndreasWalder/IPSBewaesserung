@@ -142,13 +142,13 @@ class BewaesserungCore extends IPSModule
             $this->Evaluate();
             return;
         }
-
+    
         if ($Ident == "PumpeManuell") {
             SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
             $this->Evaluate();
             return;
         }
-
+    
         for ($i = 1; $i <= 10; $i++) {
             if ($Ident == "Manuell$i" || $Ident == "Automatik$i" || $Ident == "Dauer$i" || $Ident == "Prio$i") {
                 SetValue($this->GetIDForIdent($Ident), $Value);
@@ -156,13 +156,13 @@ class BewaesserungCore extends IPSModule
                 return;
             }
         }
-
+    
         if ($Ident == "Manuell11" || $Ident == "Automatik11" || $Ident == "Dauer11" || $Ident == "Prio11") {
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->Evaluate();
             return;
         }
-
+    
         // >>> Manueller Schrittwechsel <<<
         if ($Ident == "ManualNextStep") {
             if ($Value) {
@@ -171,25 +171,25 @@ class BewaesserungCore extends IPSModule
             }
             return;
         }
-        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    
         if ($Ident == "ResetAll") {
             $this->ResetAllPrioStarts();
             $this->Evaluate();
             return;
         }
-
+    
         if ($Ident == "RestartTimer") {
             $this->SetTimerInterval("EvaluateTimer", 1000);
             IPS_LogMessage("BWZ-Timer", "Timer wurde manuell neu gestartet");
             return;
         }
-
+    
         if ($Ident == "Evaluate") {
             $this->Evaluate();
             return;
         }
-
+    
         SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
@@ -221,6 +221,12 @@ class BewaesserungCore extends IPSModule
                 break;
             }
         }
+    }
+
+    public function Evaluate()
+    {
+        IPS_LogMessage("IPSBewaesserung", "Evaluate() wurde aufgerufen.");
+        // Hier kann später deine Ablaufsteuerung ergänzt werden
     }
 }
 ?>
