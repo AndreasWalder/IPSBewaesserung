@@ -35,7 +35,7 @@ trait BewaesserungHelper
     }
 
     // Setzt ALLE Prio-Startzeiten auf "offen" (0)
-    private function ResetAllPrioStarts()
+    protected function ResetAllPrioStarts()
     {
         for ($prio = 0; $prio <= 99; $prio++) {
             $this->WriteAttributeInteger("StartPrio" . $prio, 0);
