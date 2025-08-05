@@ -125,8 +125,8 @@ class BewaesserungCore extends IPSModule
         IPS_SetName($this->GetIDForIdent("PumpeStatus"), "Pumpe Status");
         IPS_SetName($this->GetIDForIdent("PumpeInfo"), "Pumpe Info");
 
-        $this->SetTimerInterval("EvaluateTimer", 1000);
-        $this->ResetAllPrioStarts();
+        $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        $this->ResetAllPrioStarts();   
     }
 
     public function RequestAction($Ident, $Value)
@@ -176,9 +176,6 @@ class BewaesserungCore extends IPSModule
         }
 
         if ($Ident == "RestartTimer") {
-            // Timer stoppen (auf 0)
-            $this->SetTimerInterval("EvaluateTimer", 0);
-            IPS_Sleep(100); // optional, sehr kurze Pause
             // Timer wieder auf 1 Sekunde setzen (neu starten)
             $this->SetTimerInterval("EvaluateTimer", 1000);
             IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde gestoppt und neu gestartet");
