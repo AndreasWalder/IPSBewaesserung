@@ -46,13 +46,13 @@ class BewaesserungCore extends IPSModule
         // NEU: Flag für manuellen Schritt registrieren
         $this->RegisterAttributeBoolean("ManualStepActive", false);
 
-        if (!@IPS_GetObjectIDByIdent("EvaluateTimer", $this->InstanceID)) {
+        //if (!@IPS_GetObjectIDByIdent("EvaluateTimer", $this->InstanceID)) {
             // Timer existiert NICHT -> anlegen
-            $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
-        } else {
+            //$this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
+        //} else {
             // Timer existiert -> nur Intervall setzen
-            $this->SetTimerInterval("EvaluateTimer", 1000);
-        }
+            //$this->SetTimerInterval("EvaluateTimer", 1000);
+        //}
 
         // Profile
         if (!IPS_VariableProfileExists("IPSBW.Duration")) {
@@ -186,7 +186,7 @@ class BewaesserungCore extends IPSModule
         }
 
         if ($Ident == "RestartTimer") {
-            $this->SetTimerInterval("EvaluateTimer", 1000); // Nur Intervall setzen!
+            //$this->SetTimerInterval("EvaluateTimer", 1000); // Nur Intervall setzen!
             IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde auf Intervall 1000 gesetzt");
             return;
         }
