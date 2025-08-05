@@ -352,17 +352,21 @@ class BewaesserungCore extends IPSModule
 
     private function ManualStepAdvance()
     {
+        IPS_LogMessage("BWZ", "ManualStepAdvance wurde aufgerufen!");
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         $found = false;
         for ($i = 1; $i <= $zoneCount; $i++) {
             $statusID = $this->GetIDForIdent("Status$i");
             if (!@IPS_VariableExists($statusID)) {
+                IPS_LogMessage("BWZ", "StatusID $i existiert nicht");
                 continue;
             }
             $status = GetValueBoolean($statusID);
+            IPS_LogMessage("BWZ", "Zone $i, Status: " . ($status ? "AN" : "AUS"));
     
             if ($status && !$found) {
                 $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                IPS_LogMessage("BWZ", "Schalte Zone $i aus (AktorID: $aktorID)");
                 if ($aktorID > 0) {
                     RequestAction($aktorID, false);
                 }
@@ -370,6 +374,7 @@ class BewaesserungCore extends IPSModule
                 $found = true;
             } elseif ($found && !$status) {
                 $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                IPS_LogMessage("BWZ", "Schalte Zone $i ein (AktorID: $aktorID)");
                 if ($aktorID > 0) {
                     RequestAction($aktorID, true);
                 }
