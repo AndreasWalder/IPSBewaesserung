@@ -4,9 +4,11 @@ class BewaesserungCore extends IPSModule
     public function Create()
     {
         parent::Create();
-        
+
+        // Neue Variable für manuellen Schrittwechsel
         $this->RegisterVariableBoolean("ManualNextStep", ">> Manueller Schritt", "~Switch", 8000);
         $this->EnableAction("ManualNextStep");
+
         $this->RegisterPropertyInteger("ZoneCount", 1);
         for ($i = 1; $i <= 10; $i++) {
             $this->RegisterPropertyString("ZoneName$i", "Zone $i");
@@ -38,10 +40,6 @@ class BewaesserungCore extends IPSModule
         $this->EnableAction("Prio11");
         $this->RegisterVariableBoolean("Status11", "Status $nebenName (EIN/AUS)", "~Switch", 1114);
         $this->RegisterVariableString("Info11", "Info $nebenName", "", 1115);
-
-        // Neue Variable für manuellen Schrittwechsel
-        $this->RegisterVariableBoolean("ManualNextStep", ">> Manueller Schritt", "~Switch", 8000);
-        $this->EnableAction("ManualNextStep");
 
         // Prio-Startzeiten
         for ($p = 0; $p <= 99; $p++) {
@@ -134,66 +132,95 @@ class BewaesserungCore extends IPSModule
         $this->ResetAllPrioStarts();
     }
 
-    
-public function RequestAction($Ident, $Value)
-{
-    if ($Ident == "GesamtAutomatik") {
-        if ($Value) {
-            $this->ResetAllPrioStarts();
-        }
-        SetValue($this->GetIDForIdent($Ident), $Value);
-        $this->Evaluate();
-        return;
-    }
-
-    if ($Ident == "PumpeManuell") {
-        SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
-        $this->Evaluate();
-        return;
-    }
-
-    for ($i = 1; $i <= 10; $i++) {
-        if ($Ident == "Manuell$i" || $Ident == "Automatik$i" || $Ident == "Dauer$i" || $Ident == "Prio$i") {
+    public function RequestAction($Ident, $Value)
+    {
+        if ($Ident == "GesamtAutomatik") {
+            if ($Value) {
+                $this->ResetAllPrioStarts();
+            }
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->Evaluate();
             return;
         }
-    }
 
-    if ($Ident == "Manuell11" || $Ident == "Automatik11" || $Ident == "Dauer11" || $Ident == "Prio11") {
-        SetValue($this->GetIDForIdent($Ident), $Value);
-        $this->Evaluate();
-        return;
-    }
-
-    // >>>>>>>>>>>> NEU: Manueller Schrittwechsel <<<<<<<<<<<<<<<
-    if ($Ident == "ManualNextStep") {
-        if ($Value) {
-            $this->ManualStepAdvance();
-            $this->SetValue("ManualNextStep", false);
+        if ($Ident == "PumpeManuell") {
+            SetValue($this->GetIDForIdent("PumpeManuell"), $Value);
+            $this->Evaluate();
+            return;
         }
-        return;
-    }
-    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-    if ($Ident == "ResetAll") {
-        $this->ResetAllPrioStarts();
-        $this->Evaluate();
-        return;
+        for ($i = 1; $i <= 10; $i++) {
+            if ($Ident == "Manuell$i" || $Ident == "Automatik$i" || $Ident == "Dauer$i" || $Ident == "Prio$i") {
+                SetValue($this->GetIDForIdent($Ident), $Value);
+                $this->Evaluate();
+                return;
+            }
+        }
+
+        if ($Ident == "Manuell11" || $Ident == "Automatik11" || $Ident == "Dauer11" || $Ident == "Prio11") {
+            SetValue($this->GetIDForIdent($Ident), $Value);
+            $this->Evaluate();
+            return;
+        }
+
+        // >>> Manueller Schrittwechsel <<<
+        if ($Ident == "ManualNextStep") {
+            if ($Value) {
+                $this->ManualStepAdvance();
+                $this->SetValue("ManualNextStep", false);
+            }
+            return;
+        }
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        if ($Ident == "ResetAll") {
+            $this->ResetAllPrioStarts();
+            $this->Evaluate();
+            return;
+        }
+
+        if ($Ident == "RestartTimer") {
+            $this->SetTimerInterval("EvaluateTimer", 1000);
+            IPS_LogMessage("BWZ-Timer", "Timer wurde manuell neu gestartet");
+            return;
+        }
+
+        if ($Ident == "Evaluate") {
+            $this->Evaluate();
+            return;
+        }
+
+        SetValue($this->GetIDForIdent($Ident), $Value);
     }
 
-    if ($Ident == "RestartTimer") {
-        $this->SetTimerInterval("EvaluateTimer", 1000);
-        IPS_LogMessage("BWZ-Timer", "Timer wurde manuell neu gestartet");
-        return;
-    }
+    // HIER: Die Methode für den manuellen Schrittwechsel!
+    private function ManualStepAdvance()
+    {
+        $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+        $found = false;
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            $statusID = $this->GetIDForIdent("Status$i");
+            if (!@IPS_VariableExists($statusID)) {
+                continue;
+            }
+            $status = GetValueBoolean($statusID);
 
-    if ($Ident == "Evaluate") {
-        $this->Evaluate();
-        return;
+            if ($status && !$found) {
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                if ($aktorID > 0) {
+                    RequestAction($aktorID, false);
+                }
+                SetValueBoolean($statusID, false);
+                $found = true;
+            } elseif ($found && !$status) {
+                $aktorID = $this->ReadPropertyInteger("AktorID$i");
+                if ($aktorID > 0) {
+                    RequestAction($aktorID, true);
+                }
+                SetValueBoolean($statusID, true);
+                break;
+            }
+        }
     }
-
-    SetValue($this->GetIDForIdent($Ident), $Value);
 }
-
 ?>
