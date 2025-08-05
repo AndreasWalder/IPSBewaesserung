@@ -370,22 +370,34 @@ class BewaesserungCore extends IPSModule
         // Flag setzen für Automatik-Logik!
         $this->WriteAttributeBoolean("ManualStepActive", true);
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
+    
+        // Aktuelle aktive Prio finden
+        $aktivePrio = null;
         for ($i = 1; $i <= $zoneCount; $i++) {
             $statusID = $this->GetIDForIdent("Status$i");
-            $dauerID  = $this->GetIDForIdent("Dauer$i");
-            if (!@IPS_VariableExists($statusID)) {
-                continue;
-            }
-            $status = GetValueBoolean($statusID);
-            if ($status) {
-                // Restlaufzeit auf 0 (Dauer-Minuten auf 0)
-                if (@IPS_VariableExists($dauerID)) {
-                    SetValueInteger($dauerID, 0);
-                    IPS_LogMessage("BWZ", "Restlaufzeit Zone $i auf 0 gesetzt (ID $dauerID)");
-                }
+            if (!@IPS_VariableExists($statusID)) continue;
+            if (GetValueBoolean($statusID)) {
+                $prio = GetValue($this->GetIDForIdent("Prio$i"));
+                $aktivePrio = $prio;
                 break;
             }
         }
+        if ($aktivePrio === null) return;
+    
+        // ALLE aktiven Zonen dieser Prio auf 0 setzen
+        for ($i = 1; $i <= $zoneCount; $i++) {
+            $statusID = $this->GetIDForIdent("Status$i");
+            $dauerID  = $this->GetIDForIdent("Dauer$i");
+            if (!@IPS_VariableExists($statusID) || !@IPS_VariableExists($dauerID)) continue;
+            $prio = GetValue($this->GetIDForIdent("Prio$i"));
+            if ($prio == $aktivePrio && GetValueBoolean($statusID)) {
+                SetValueInteger($dauerID, 0);
+                IPS_LogMessage("BWZ", "Restlaufzeit Zone $i (Prio $prio) auf 0 gesetzt (ID $dauerID)");
+            }
+        }
+    
+        // NEU: Automatik sofort auswerten (springt zur nächsten Prio, falls vorhanden)
+        $this->Evaluate();
     }
 
     // Hilfsfunktionen
