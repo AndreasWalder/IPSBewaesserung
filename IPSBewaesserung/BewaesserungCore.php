@@ -176,8 +176,8 @@ class BewaesserungCore extends IPSModule
         }
 
        if ($Ident == "RestartTimer") {
-            // Timer zuerst komplett entfernen
-            $this->UnregisterTimer("EvaluateTimer");
+            // Timer deaktivieren (löschen)
+            $this->SetTimerInterval("EvaluateTimer", 0);
             // Und sofort wieder neu anlegen (frisch, mit aktuellem Intervall & Callback)
             $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
             IPS_LogMessage("BWZ-Timer", "EvaluateTimer wurde komplett gelöscht und neu erstellt");
