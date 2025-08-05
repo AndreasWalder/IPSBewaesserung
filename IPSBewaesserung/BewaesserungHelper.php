@@ -52,20 +52,6 @@ trait BewaesserungHelper
         return $max;
     }
 
-    public function RequestAction($Ident, $Value)
-    {
-        switch ($Ident) {
-            case "ManualNextStep":
-                if ($Value) {
-                    $this->ManualStepAdvance();
-                    $this->SetValue("ManualNextStep", false);
-                }
-                break;
-    
-            // Weitere Actions hier behandeln ...
-        }
-    }
-
     private function ManualStepAdvance()
     {
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
