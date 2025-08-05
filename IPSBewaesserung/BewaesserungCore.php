@@ -4,6 +4,9 @@ class BewaesserungCore extends IPSModule
     public function Create()
     {
         parent::Create();
+        
+        $this->RegisterVariableBoolean("ManualNextStep", ">> Manueller Schritt", "~Switch", 8000);
+        $this->EnableAction("ManualNextStep");
         $this->RegisterPropertyInteger("ZoneCount", 1);
         for ($i = 1; $i <= 10; $i++) {
             $this->RegisterPropertyString("ZoneName$i", "Zone $i");
