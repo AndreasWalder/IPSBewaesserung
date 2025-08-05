@@ -38,6 +38,7 @@ class BewaesserungCore extends IPSModule
         $this->EnableAction("Prio11");
         $this->RegisterVariableBoolean("Status11", "Status $nebenName (EIN/AUS)", "~Switch", 1114);
         $this->RegisterVariableString("Info11", "Info $nebenName", "", 1115);
+
         $this->RegisterAttributeBoolean("ManualStepActive", false);
 
         // Profil für Minuten
@@ -180,10 +181,11 @@ class BewaesserungCore extends IPSModule
 
         if ($gesamtAuto) {
             $prioMap = [];
+            // Normale Zonen + Nebenstelle einbeziehen
             for ($i = 1; $i <= $zoneCount + 1; $i++) {
                 $auto = GetValue($this->GetIDForIdent("Automatik$i"));
                 $prio = GetValue($this->GetIDForIdent("Prio$i"));
-                $dauer = GetValue($this->GetIDForIdent("Dauer$i")) * 60;
+                $dauer = GetValue($this->GetIDForIdent("Dauer$i")) * 60; // Minuten -> Sekunden
                 $aktorID = $this->ReadPropertyInteger("AktorID$i");
                 $statusID = $this->GetIDForIdent("Status$i");
                 $infoID = $this->GetIDForIdent("Info$i");
@@ -331,14 +333,12 @@ class BewaesserungCore extends IPSModule
             if (@IPS_VariableExists($infoID)) {
                 SetValueString($infoID, "");
             }
-            // Dauer-Property holen und als Variable setzen
             $dauerID = $this->GetIDForIdent("Dauer$i");
             $konfigDauer = $this->ReadPropertyInteger("Dauer$i");
             if (@IPS_VariableExists($dauerID) && $konfigDauer > 0) {
                 SetValueInteger($dauerID, $konfigDauer);
             }
         }
-        // Nebenstelle (Zone 11)
         $statusID = $this->GetIDForIdent("Status11");
         $infoID   = $this->GetIDForIdent("Info11");
         if (@IPS_VariableExists($statusID)) SetValueBoolean($statusID, false);
@@ -350,13 +350,19 @@ class BewaesserungCore extends IPSModule
         }
     }
 
+    private function ResetAllPrioStarts()
+    {
+        for ($prio = 0; $prio <= 99; $prio++) {
+            $this->WriteAttributeInteger("StartPrio" . $prio, 0);
+        }
+    }
+
     // Nur EINMAL hier! (Nicht im Trait!)
     private function ManualStepAdvance()
     {
         $this->WriteAttributeBoolean("ManualStepActive", true);
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         $activePrio = null;
-        $prioMap = [];
         // Aktive Prio suchen
         for ($i = 1; $i <= $zoneCount + 1; $i++) {
             $statusID = $this->GetIDForIdent("Status$i");
