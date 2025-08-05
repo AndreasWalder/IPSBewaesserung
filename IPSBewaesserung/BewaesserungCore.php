@@ -1,8 +1,6 @@
 <?php
 class BewaesserungCore extends IPSModule
 {
-    use BewaesserungHelper;
-
     public function Create()
     {
         parent::Create();
