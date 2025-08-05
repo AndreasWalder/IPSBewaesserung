@@ -253,9 +253,17 @@ class BewaesserungCore extends IPSModule
                     }
                     continue;
                 }
+
+                $manualNextPrio = $this->ReadAttributeInteger("ManualStepNextPrio");
                 if ($startPrio <= 0) {
-                    $startPrio = $now + $globalOffset;
-                    $this->WriteAttributeInteger($startAttr, $startPrio);
+                    if ($manualNextPrio == $prio) {
+                        $startPrio = $now; // Start jetzt, kein Offset!
+                        $this->WriteAttributeInteger($startAttr, $startPrio);
+                        $this->WriteAttributeInteger("ManualStepNextPrio", 0);
+                    } else {
+                        $startPrio = $now + $globalOffset;
+                        $this->WriteAttributeInteger($startAttr, $startPrio);
+                    }
                 }
 
                 if ($now > $startPrio + $prioDauer) {
@@ -430,6 +438,7 @@ class BewaesserungCore extends IPSModule
                 if ($startPrio !== -1) {
                     $this->WriteAttributeInteger($startAttr, time());
                     IPS_LogMessage("BWZ", "StartPrio$nextPrio auf jetzt gesetzt durch manuellen Schritt.");
+                    $this->WriteAttributeInteger("ManualStepNextPrio", $nextPrio);
                     break;
                 }
             }
