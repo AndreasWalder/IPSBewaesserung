@@ -260,13 +260,15 @@ class BewaesserungCore extends IPSModule
                             $this->SafeRequestAction($z['aktorID'], true, $z['statusID'], $z['infoID'], "Automatik läuft");
                         }
                         $rest = $ende - $now;
-                        SetValueString($z['infoID'], "Automatik läuft noch $rest Sek. (Prio $prio)");
+                        $restMin = ceil($rest / 60);
+                        SetValueString($z['infoID'], "Automatik läuft noch $restMin min (Prio $prio)");
                     } else {
                         if ($z['aktorID'] > 0 && @IPS_ObjectExists($z['aktorID'])) {
                             $this->SafeRequestAction($z['aktorID'], false, $z['statusID'], $z['infoID'], "");
                         }
                         $wait = $startPrio - $now;
-                        SetValueString($z['infoID'], "Automatik Start in " . ($wait > 0 ? $wait : 0) . " Sek. (Prio $prio)");
+                        $waitMin = ($wait > 0) ? ceil($wait / 60) : 0;
+                        SetValueString($z['infoID'], "Automatik Start in $waitMin min (Prio $prio)");
                     }
                 }
                 $globalOffset += $maxDauer;
