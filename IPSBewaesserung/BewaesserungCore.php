@@ -124,7 +124,6 @@ class BewaesserungCore extends IPSModule
         IPS_SetName($this->GetIDForIdent("PumpeManuell"), "Pumpe Manuell");
         IPS_SetName($this->GetIDForIdent("PumpeStatus"), "Pumpe Status");
         IPS_SetName($this->GetIDForIdent("PumpeInfo"), "Pumpe Info");
-
         $this->ResetAllPrioStarts();
     }
 
