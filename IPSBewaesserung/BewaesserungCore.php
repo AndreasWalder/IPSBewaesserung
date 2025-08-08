@@ -4,29 +4,33 @@ class BewaesserungCore extends IPSModule
     public function Create()
     {
         parent::Create();
+
+        // Manueller Schritt
         $this->RegisterVariableBoolean("ManualNextStep", ">> Manueller Schritt", "~Switch", 8000);
         $this->EnableAction("ManualNextStep");
+
+        // Basis-Properties
         $this->RegisterPropertyInteger("ZoneCount", 1);
         for ($i = 1; $i <= 10; $i++) {
             $this->RegisterPropertyString("ZoneName$i", "Zone $i");
             $this->RegisterPropertyInteger("AktorID$i", 0);
-            $this->RegisterPropertyInteger("Dauer$i", 5); // Dauer in Minuten!
+            // Alte Properties für Dauer in Minuten bleiben erhalten (werden aber NICHT mehr für Reset verwendet).
+            $this->RegisterPropertyInteger("Dauer$i", 5);
         }
+        // Nebenstelle
         $this->RegisterPropertyInteger("AktorID11", 0);
-        $this->RegisterPropertyInteger("Dauer11", 5); // Minuten!
-
-        $this->RegisterPropertyInteger("PumpeAktorID", 0);
-
-        $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
-        $this->EnableAction("GesamtAutomatik");
+        $this->RegisterPropertyInteger("Dauer11", 5);
 
         // Pumpe
+        $this->RegisterPropertyInteger("PumpeAktorID", 0);
+        $this->RegisterVariableBoolean("GesamtAutomatik", "Automatik Gesamtsystem", "~Switch", 900);
+        $this->EnableAction("GesamtAutomatik");
         $this->RegisterVariableBoolean("PumpeManuell", "Pumpe Manuell", "~Switch", 950);
         $this->EnableAction("PumpeManuell");
         $this->RegisterVariableBoolean("PumpeStatus", "Pumpe Status", "~Switch", 951);
         $this->RegisterVariableString("PumpeInfo", "Pumpe Info", "", 952);
 
-        // Nebenstelle (11. Zone)
+        // Nebenstelle-Variablen
         $nebenName = "Nebenstelle";
         $this->RegisterVariableBoolean("Manuell11", "Manuell $nebenName", "~Switch", 1110);
         $this->EnableAction("Manuell11");
@@ -39,56 +43,78 @@ class BewaesserungCore extends IPSModule
         $this->RegisterVariableBoolean("Status11", "Status $nebenName (EIN/AUS)", "~Switch", 1114);
         $this->RegisterVariableString("Info11", "Info $nebenName", "", 1115);
 
-        // Prio-Startzeiten
+        // Attribute für Prio-Starts
         for ($p = 0; $p <= 99; $p++) {
             $this->RegisterAttributeInteger("StartPrio$p", 0);
         }
 
-       
-
-        // NEU: Flag für manuellen Schritt registrieren
+        // Flags für manuellen Schritt
         $this->RegisterAttributeBoolean("ManualStepActive", false);
         $this->RegisterAttributeInteger("ManualStepNextPrio", 0);
-       
-        // Profile für Minuten (VariableProfile 1 = Integer)
+
+        // Profile
         if (!IPS_VariableProfileExists("IPSBW.DurationMin")) {
             IPS_CreateVariableProfile("IPSBW.DurationMin", 1);
             IPS_SetVariableProfileText("IPSBW.DurationMin", "", " min");
             IPS_SetVariableProfileDigits("IPSBW.DurationMin", 0);
-            IPS_SetVariableProfileValues("IPSBW.DurationMin", 1, 240, 1); // 1 bis 240 Minuten
+            IPS_SetVariableProfileValues("IPSBW.DurationMin", 1, 240, 1);
         }
 
+        if (!IPS_VariableProfileExists("IPSBW.Prioritaet")) {
+            IPS_CreateVariableProfile("IPSBW.Prioritaet", 1);
+            IPS_SetVariableProfileValues("IPSBW.Prioritaet", 1, 20, 1);
+        }
+
+        // Timer (immer in Create registrieren)
         $this->RegisterTimer("EvaluateTimer", 1000, 'IPS_RequestAction($_IPS["TARGET"], "Evaluate", 0);');
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         if ($zoneCount < 1) $zoneCount = 1;
         if ($zoneCount > 10) $zoneCount = 10;
 
+        // Zonen anlegen
         for ($i = 1; $i <= $zoneCount; $i++) {
             $zoneName = $this->ReadPropertyString("ZoneName$i");
 
             $this->RegisterVariableBoolean("Manuell$i", "Manuell $zoneName", "~Switch", 1000 + $i * 10);
             $this->EnableAction("Manuell$i");
+
             $this->RegisterVariableBoolean("Automatik$i", "Automatik $zoneName", "~Switch", 1001 + $i * 10);
             $this->EnableAction("Automatik$i");
+
+            // Laufzeit (dynamisch im WebFront editierbar, wird zur Restzeit verändert)
             $this->RegisterVariableInteger("Dauer$i", "Dauer $zoneName", "IPSBW.DurationMin", 1002 + $i * 10);
             $this->EnableAction("Dauer$i");
+
+            // Startlaufzeit (nur als Ausgangswert bei Start der Automatik)
+            $this->RegisterVariableInteger("DauerStart$i", "DauerStart $zoneName", "IPSBW.DurationMin", 1002 + $i * 10 + 1);
+            if (GetValue($this->GetIDForIdent("DauerStart$i")) == 0) {
+                // Mit aktuellem Dauer-Wert initialisieren (oder Fallback 5)
+                $cur = @GetValue($this->GetIDForIdent("Dauer$i"));
+                if ($cur <= 0) $cur = 5;
+                SetValueInteger($this->GetIDForIdent("DauerStart$i"), $cur);
+            }
+
             $this->RegisterVariableInteger("Prio$i", "Priorität $zoneName", "IPSBW.Prioritaet", 1003 + $i * 10);
             $this->EnableAction("Prio$i");
+
             $this->RegisterVariableBoolean("Status$i", "Status $zoneName (EIN/AUS)", "~Switch", 1004 + $i * 10);
             $this->RegisterVariableString("Info$i", "Info $zoneName", "", 1005 + $i * 10);
 
             IPS_SetName($this->GetIDForIdent("Manuell$i"), "Manuell $zoneName");
             IPS_SetName($this->GetIDForIdent("Automatik$i"), "Automatik $zoneName");
             IPS_SetName($this->GetIDForIdent("Dauer$i"), "Dauer $zoneName");
+            IPS_SetName($this->GetIDForIdent("DauerStart$i"), "DauerStart $zoneName");
             IPS_SetName($this->GetIDForIdent("Prio$i"), "Priorität $zoneName");
             IPS_SetName($this->GetIDForIdent("Status$i"), "Status $zoneName (EIN/AUS)");
             IPS_SetName($this->GetIDForIdent("Info$i"), "Info $zoneName");
 
+            // Hinweis, wenn kein Aktor verknüpft ist
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
             $infoID = $this->GetIDForIdent("Info$i");
             if ($aktorID == 0) {
@@ -96,14 +122,22 @@ class BewaesserungCore extends IPSModule
             }
         }
 
-        // Nebenstelle (Zone 11, Name fest)
+        // Nebenstelle (Zone 11)
         $nebenName = "Nebenstelle";
         $this->RegisterVariableBoolean("Manuell11", "Manuell $nebenName", "~Switch", 1110);
         $this->EnableAction("Manuell11");
         $this->RegisterVariableBoolean("Automatik11", "Automatik $nebenName", "~Switch", 1111);
         $this->EnableAction("Automatik11");
+
         $this->RegisterVariableInteger("Dauer11", "Dauer $nebenName", "IPSBW.DurationMin", 1112);
         $this->EnableAction("Dauer11");
+        $this->RegisterVariableInteger("DauerStart11", "DauerStart $nebenName", "IPSBW.DurationMin", 1112 + 1);
+        if (GetValue($this->GetIDForIdent("DauerStart11")) == 0) {
+            $cur = @GetValue($this->GetIDForIdent("Dauer11"));
+            if ($cur <= 0) $cur = 5;
+            SetValueInteger($this->GetIDForIdent("DauerStart11"), $cur);
+        }
+
         $this->RegisterVariableInteger("Prio11", "Priorität $nebenName", "IPSBW.Prioritaet", 1113);
         $this->EnableAction("Prio11");
         $this->RegisterVariableBoolean("Status11", "Status $nebenName (EIN/AUS)", "~Switch", 1114);
@@ -112,20 +146,17 @@ class BewaesserungCore extends IPSModule
         IPS_SetName($this->GetIDForIdent("Manuell11"), "Manuell $nebenName");
         IPS_SetName($this->GetIDForIdent("Automatik11"), "Automatik $nebenName");
         IPS_SetName($this->GetIDForIdent("Dauer11"), "Dauer $nebenName");
+        IPS_SetName($this->GetIDForIdent("DauerStart11"), "DauerStart $nebenName");
         IPS_SetName($this->GetIDForIdent("Prio11"), "Priorität $nebenName");
         IPS_SetName($this->GetIDForIdent("Status11"), "Status $nebenName (EIN/AUS)");
         IPS_SetName($this->GetIDForIdent("Info11"), "Info $nebenName");
 
-        $aktorID = $this->ReadPropertyInteger("AktorID11");
-        $infoID = $this->GetIDForIdent("Info11");
-        if ($aktorID == 0) {
-            SetValueString($infoID, "Bitte KNX-Aktor für $nebenName auswählen!");
-        }
-
+        // Pumpe-Benennungen
         IPS_SetName($this->GetIDForIdent("PumpeManuell"), "Pumpe Manuell");
         IPS_SetName($this->GetIDForIdent("PumpeStatus"), "Pumpe Status");
         IPS_SetName($this->GetIDForIdent("PumpeInfo"), "Pumpe Info");
 
+        // Alle Prio-Starts zurücksetzen
         $this->ResetAllPrioStarts();
     }
 
@@ -134,8 +165,8 @@ class BewaesserungCore extends IPSModule
         if ($Ident == "GesamtAutomatik") {
             if ($Value) {
                 $this->ResetAllPrioStarts();
-                $this->ResetAllStatusAndInfos();
-                IPS_LogMessage("BWZ", "GesamtAutomatik: Status, Info und Dauer aus Konfiguration zurückgesetzt!");
+                $this->ResetAllStatusAndInfosFromStart(); // <- NEU: Dauer = DauerStart übernehmen
+                IPS_LogMessage("BWZ", "GesamtAutomatik: Status/Info zurückgesetzt & Dauer aus DauerStart übernommen.");
             }
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->Evaluate();
@@ -169,7 +200,7 @@ class BewaesserungCore extends IPSModule
             }
             return;
         }
-    
+
         if ($Ident == "ResetAll") {
             $this->ResetAllPrioStarts();
             $this->Evaluate();
@@ -198,7 +229,7 @@ class BewaesserungCore extends IPSModule
 
         $gesamtAuto = GetValue($this->GetIDForIdent("GesamtAutomatik"));
 
-        // Pumpe immer "an", solange Automatik läuft (optional anpassbar!)
+        // Pumpe
         if ($gesamtAuto) {
             SetValue($this->GetIDForIdent("PumpeStatus"), true);
             SetValue($this->GetIDForIdent("PumpeInfo"), "Automatik aktiv");
@@ -208,7 +239,7 @@ class BewaesserungCore extends IPSModule
             SetValue($this->GetIDForIdent("PumpeInfo"), $manPumpe ? "Manuell an" : "Manuell aus");
         }
 
-        // --- Pumpe Aktor ANSTEUERN (neu) ---
+        // Pumpe Aktor ansteuern
         $pumpeAktorID = $this->ReadPropertyInteger("PumpeAktorID");
         $pumpeStatus = GetValue($this->GetIDForIdent("PumpeStatus"));
         if ($pumpeAktorID > 0 && @IPS_ObjectExists($pumpeAktorID)) {
@@ -216,12 +247,12 @@ class BewaesserungCore extends IPSModule
         }
 
         if ($gesamtAuto) {
-            // Automatik: Nach Prio und Dauer, Zonen nacheinander
+            // Automatik nach Prio
             $prioMap = [];
             for ($i = 1; $i <= $zoneCount + 1; $i++) {
-                $auto = GetValue($this->GetIDForIdent("Automatik$i"));
-                $prio = GetValue($this->GetIDForIdent("Prio$i"));
-                $dauer = GetValue($this->GetIDForIdent("Dauer$i"));
+                $auto = @GetValue($this->GetIDForIdent("Automatik$i"));
+                $prio = @GetValue($this->GetIDForIdent("Prio$i"));
+                $dauerMin = @GetValue($this->GetIDForIdent("Dauer$i")); // Minuten aus der Laufzeit-Variable
                 $aktorID = $this->ReadPropertyInteger("AktorID$i");
                 $statusID = $this->GetIDForIdent("Status$i");
                 $infoID = $this->GetIDForIdent("Info$i");
@@ -230,7 +261,7 @@ class BewaesserungCore extends IPSModule
                     if (!isset($prioMap[$prio])) $prioMap[$prio] = [];
                     $prioMap[$prio][] = [
                         'index' => $i,
-                        'dauer' => $dauer * 60, // Minuten zu Sekunden!
+                        'dauer' => max(0, (int)$dauerMin) * 60, // in Sekunden
                         'aktorID' => $aktorID,
                         'statusID' => $statusID,
                         'infoID' => $infoID
@@ -260,7 +291,7 @@ class BewaesserungCore extends IPSModule
                 $manualNextPrio = $this->ReadAttributeInteger("ManualStepNextPrio");
                 if ($startPrio <= 0) {
                     if ($manualNextPrio == $prio) {
-                        $startPrio = $now; // Start jetzt, kein Offset!
+                        $startPrio = $now; // sofort
                         $this->WriteAttributeInteger($startAttr, $startPrio);
                         $this->WriteAttributeInteger("ManualStepNextPrio", 0);
                     } else {
@@ -302,7 +333,7 @@ class BewaesserungCore extends IPSModule
                 $globalOffset += $maxDauer;
             }
 
-            // Prüfen, ob noch Automatik läuft – sonst Automatik abschalten NUR wenn keine Prio-Gruppe mehr kommt!
+            // Läuft noch was?
             $irgendetwasAktiv = false;
             foreach ($prioMap as $prio => $zoneArray) {
                 $startAttr = "StartPrio" . $prio;
@@ -316,7 +347,7 @@ class BewaesserungCore extends IPSModule
                     }
                 }
             }
-            // NEU: Prüfen, ob noch eine weitere Prio-Gruppe ansteht
+            // Gibt es noch offene Gruppen?
             $priosOffen = 0;
             foreach ($prioMap as $prio => $zoneArray) {
                 $startAttr = "StartPrio" . $prio;
@@ -326,7 +357,6 @@ class BewaesserungCore extends IPSModule
                 }
             }
 
-            // Nur Automatik abschalten, wenn WIRKLICH keine Prio-Gruppe mehr ansteht:
             if (!$irgendetwasAktiv && $priosOffen == 0) {
                 if ($this->ReadAttributeBoolean("ManualStepActive")) {
                     $this->WriteAttributeBoolean("ManualStepActive", false);
@@ -338,7 +368,7 @@ class BewaesserungCore extends IPSModule
             return;
         }
 
-        // Wenn Automatik aus, dann Manuell zulassen
+        // Manuellbetrieb (Automatik aus)
         for ($i = 1; $i <= $zoneCount; $i++) {
             $manuell = GetValue($this->GetIDForIdent("Manuell$i"));
             $aktorID = $this->ReadPropertyInteger("AktorID$i");
@@ -356,7 +386,8 @@ class BewaesserungCore extends IPSModule
                 SetValueString($infoID, "Keine AktorID");
             }
         }
-        // Nebenstelle (Zone 11)
+
+        // Nebenstelle (Zone 11) im Manuellbetrieb
         $manuell = GetValue($this->GetIDForIdent("Manuell11"));
         $aktorID = $this->ReadPropertyInteger("AktorID11");
         $statusID = $this->GetIDForIdent("Status11");
@@ -373,8 +404,9 @@ class BewaesserungCore extends IPSModule
         }
     }
 
-    private function ResetAllStatusAndInfos()
+    private function ResetAllStatusAndInfosFromStart()
     {
+        // Dauer = DauerStart übernehmen, Status/Info zurücksetzen
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         for ($i = 1; $i <= $zoneCount; $i++) {
             $statusID = $this->GetIDForIdent("Status$i");
@@ -386,31 +418,36 @@ class BewaesserungCore extends IPSModule
                 SetValueString($infoID, "");
             }
             $dauerID = $this->GetIDForIdent("Dauer$i");
-            $konfigDauer = $this->ReadPropertyInteger("Dauer$i");
-            if (@IPS_VariableExists($dauerID) && $konfigDauer > 0) {
-                SetValueInteger($dauerID, $konfigDauer);
+            $dauerStartID = $this->GetIDForIdent("DauerStart$i");
+            if (@IPS_VariableExists($dauerID) && @IPS_VariableExists($dauerStartID)) {
+                $start = GetValueInteger($dauerStartID);
+                if ($start <= 0) $start = 5;
+                SetValueInteger($dauerID, $start);
             }
         }
-        // Nebenstelle (Zone 11)
+        // Nebenstelle
         $statusID = $this->GetIDForIdent("Status11");
         $infoID   = $this->GetIDForIdent("Info11");
         if (@IPS_VariableExists($statusID)) SetValueBoolean($statusID, false);
         if (@IPS_VariableExists($infoID))   SetValueString($infoID, "");
+
         $dauerID = $this->GetIDForIdent("Dauer11");
-        $konfigDauer = $this->ReadPropertyInteger("Dauer11");
-        if (@IPS_VariableExists($dauerID) && $konfigDauer > 0) {
-            SetValueInteger($dauerID, $konfigDauer);
+        $dauerStartID = $this->GetIDForIdent("DauerStart11");
+        if (@IPS_VariableExists($dauerID) && @IPS_VariableExists($dauerStartID)) {
+            $start = GetValueInteger($dauerStartID);
+            if ($start <= 0) $start = 5;
+            SetValueInteger($dauerID, $start);
         }
     }
 
     private function ManualStepAdvance()
     {
         $this->WriteAttributeBoolean("ManualStepActive", true);
-    
+
         $zoneCount = $this->ReadPropertyInteger("ZoneCount");
         $foundPrio = null;
-    
-        // 1. Aktive Prio finden und Restzeit auf 0
+
+        // Aktive Prio finden und Restzeit auf 0
         for ($prio = 1; $prio <= 99; $prio++) {
             $found = false;
             for ($i = 1; $i <= $zoneCount; $i++) {
@@ -432,8 +469,8 @@ class BewaesserungCore extends IPSModule
             }
             if ($found) break;
         }
-    
-        // 2. Nächste noch offene Prio auf jetzt setzen:
+
+        // Nächste offene Prio sofort starten
         if ($foundPrio !== null) {
             for ($nextPrio = $foundPrio + 1; $nextPrio <= 99; $nextPrio++) {
                 $startAttr = "StartPrio" . $nextPrio;
