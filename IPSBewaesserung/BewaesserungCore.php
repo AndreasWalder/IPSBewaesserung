@@ -5,6 +5,22 @@ class BewaesserungCore extends IPSModule
     {
         parent::Create();
 
+        // --- Profile müssen existieren, bevor sie verwendet werden ---
+        // Dauer in Minuten
+        if (!IPS_VariableProfileExists('IPSBW.DurationMin')) {
+            IPS_CreateVariableProfile('IPSBW.DurationMin', 1);   // 1 = Integer
+            IPS_SetVariableProfileText('IPSBW.DurationMin', '', ' min');
+            IPS_SetVariableProfileDigits('IPSBW.DurationMin', 0);
+            IPS_SetVariableProfileValues('IPSBW.DurationMin', 1, 240, 1); // 1..240 min
+        }
+    
+        // Priorität
+        if (!IPS_VariableProfileExists('IPSBW.Prioritaet')) {
+            IPS_CreateVariableProfile('IPSBW.Prioritaet', 1);    // 1 = Integer
+            IPS_SetVariableProfileText('IPSBW.Prioritaet', '', '');
+            IPS_SetVariableProfileValues('IPSBW.Prioritaet', 1, 99, 1);   // 1..99
+        }
+
         // Manueller Schritt
         $this->RegisterVariableBoolean("ManualNextStep", ">> Manueller Schritt", "~Switch", 8000);
         $this->EnableAction("ManualNextStep");
