@@ -44,7 +44,13 @@ Ein modernes, flexibles IP-Symcon-Modul zur Steuerung von bis zu 10 Haupt-Bewäs
    Objektbaum → Instanz hinzufügen → „Bewässerung Multi-Zone“
 
 4. **Zonenanzahl, Namen, Aktoren und Pumpe in der Instanzkonfiguration festlegen**.
+   
+5. **PHP Skript Timer anlegen und auf 2 Sekunden stellen**.
+   Es brauch zum Schluss noch einen "Auto Timer" der händisch angelegt werden muss.
+   <?php
+   IPS_RequestAction(52811, "Evaluate", 0);
 
+   <img width="499" height="137" alt="image" src="https://github.com/user-attachments/assets/9b257d9d-d3d5-4424-a931-1ad714f8366a" />
 ---
 
 ## ⚙️ Konfiguration
