@@ -50,8 +50,9 @@ Ein modernes, flexibles IP-Symcon-Modul zur Steuerung von bis zu 10 Haupt-Bewäs
 
     ```php
     <?php
-    IPS_RequestAction(52811, "Evaluate", 0);
-   
+    IPS_RequestAction(Instanz Objekt Id, "Evaluate", 0);
+    php```
+    
    <img width="499" height="137" alt="image" src="https://github.com/user-attachments/assets/9b257d9d-d3d5-4424-a931-1ad714f8366a" />
 ---
 
