@@ -54,7 +54,7 @@ Ein modernes, flexibles IP-Symcon-Modul zur Steuerung von bis zu 10 Haupt-Bewäs
     
   
 
-    <img width="499" height="137" alt="image" src="https://github.com/user-attachments/assets/9b257d9d-d3d5-4424-a931-1ad714f8366a" />
+<img width="499" height="137" alt="image" src="https://github.com/user-attachments/assets/9b257d9d-d3d5-4424-a931-1ad714f8366a" />
 
  ---
 
